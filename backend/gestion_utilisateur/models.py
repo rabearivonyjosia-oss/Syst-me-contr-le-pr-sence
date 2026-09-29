@@ -6,12 +6,14 @@ from django.contrib.auth.models import AbstractUser
 class CustomUser(AbstractUser):
 
     ROLE_CHOICE=(
-        ('ETUDIANT','étudiant' ),
+        ('ADMIN','administrateur' ),
         ('ENSEIGNANT','enseignant'),
-        ('ADMIN','administrateur'),
+        ('ETUDIANT','étudiant'),
     )
 
     email=models.EmailField(unique=True)
+    num_matricule=models.CharField(max_length=20, unique=True)
+    matiere=models.CharField(max_length=100)
 
     role=models.CharField(max_length=20, choices=ROLE_CHOICE)
     

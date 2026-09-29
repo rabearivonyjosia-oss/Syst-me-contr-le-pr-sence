@@ -1,10 +1,11 @@
 from django.shortcuts import render
 from rest_framework import generics
-from .serialiers import RegisterSerializers
+from .serializers import RegisterSerializer
 
-class RegisterView(generics.CreateAPIViews):
-    serializer_class =RegisterSerializers
+class RegisterViews(generics.CreateAPIView):
+    serializer_class = RegisterSerializer
     
 
 
 
+ 

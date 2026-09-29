@@ -3,13 +3,13 @@ from .models import CustomUser
   
  #triate les demande opour l'API
 
-class RegisterSerializers(serializers.ModelSerializer):
+class RegisterSerializer(serializers.ModelSerializer):
 
     password = serializers.CharField(write_only=True)
 
     class Meta:
         model = CustomUser
-        field = [
+        fields = [
             'id',
             'username',
             'email',
