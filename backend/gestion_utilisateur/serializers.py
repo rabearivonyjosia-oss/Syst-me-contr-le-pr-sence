@@ -1,21 +1,30 @@
 from rest_framework import serializers
-from .models import Enseignant, Etudiant, users
+from .models import CustomUser
   
  #triate les demande opour l'API
-  class usersSerializers(serializers.ModelSerializers):
-     class Meta:
-        model = users
-        fields = '__all__'
 
-    
-class EtudiantSerializers(serializers,ModelSerializers):
-       class Meta:
-        model = Etudiant
-        fields = '__all__'
+class RegisterSerializers(serializers.ModelSerializer):
 
-class EnseignantSerializers(serializers,ModelSerializers):
+    password = serializers.CharField(write_only=True)
+
     class Meta:
-        models = Enseignant
-        fields = '__all__'
-        
-
+        model = CustomUser
+        field = [
+            'id',
+            'username',
+            'email',
+            'role',
+            'matiere',
+            'num_matricule',
+            'password',
+        ]
+    def create(self, validated_data):
+        user = CustomUser.objects.create_user(
+            username=validated_data['username'],
+            email=validated_data['email'],
+            role=validated_data['role'],
+            matiere=validated_data['matiere'],
+            num_matricule=validated_data['num_matricule'],
+            password=validated_data['password']
+        )
+        return user
