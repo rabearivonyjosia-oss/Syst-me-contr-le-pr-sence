@@ -3,33 +3,57 @@ import heroImg from './assets/hero.png'
 import reactLogo from './assets/react.svg'
 import viteLogo from './assets/vite.svg'
 import './App.css'
+import Inscription from './inscription.jsx'
 
+function App() {
+  const [page, setPage] = useState('login');
+    const [email, setEmail]= useState('');
+    const [password, setPassword]= useState('');
 
-function App(){
-  const {user, setUser} = useState([]);
-     
-  useEffect(() => {
-    fetch('http://http://127.0.0.1:8000/login/')
-      .then(response => response.json())
-      .then(data => setUser(data));
-  }, []);
+    const handleLogin = () => {   
+      fetch('http://127.0.0.1:8000/login/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          email: email,
+          password: password
+        })
+      })
 
-     return(
-      <div className='app'>
-        
-        <h3>LOGIN</h3>
-        <input type="email" placeholder='email'  />
-        <input type="password"  placeholder='password'/>
-        <button  onClick={handlelogin}>connexion</button>
-        <button>register</button>
-      </div>)
-        
-
-
+      .then(reponse => response.json)
+      .then(data => { 
+        if (data.access) {
+          setMassage('connection reussie')
+        }else{
+          setMessage('connection echouée')
+        }
+       })
+       .catch(error => {
+        console.error('Error:', error);
+       })
+     }
+     if (page === 'inscription'){
+      return(
+        <Inscription 
+        goToLogin={() => setPage('Login')}/>
+      )
+     }
       
+
+  return (
+    <div className="App">
+      <h2>hello</h2>
+      <input type="text" placeholder='email' />
+      <input type="text" placeholder='password' />
+      <button onClick={handleLogin}>se connecter</button>
+      <button onClick={()=> setPage('inscription')}>s'incrire</button>
       
+
+
+    </div>
+  )
 }
-   
- 
 
-export default App
+export default App;
