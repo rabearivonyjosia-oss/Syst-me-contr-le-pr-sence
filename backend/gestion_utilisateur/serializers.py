@@ -14,7 +14,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             'username',
             'email',
             'role',
-            'matiere',
+            'niveau',
             'num_matricule',
             'password',
         ]
@@ -23,7 +23,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             username=validated_data['username'],
             email=validated_data['email'],
             role=validated_data['role'],
-            matiere=validated_data['matiere'],
+            niveau=validated_data['niveau'],
             num_matricule=validated_data['num_matricule'],
             password=validated_data['password']
         )
