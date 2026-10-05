@@ -1,23 +1,27 @@
 from rest_framework import serializers
-from .model import cours
+from .models import cours
 
 #regiter pour les cours crée
 
-class coursSerializer(serializers.ModelssSerializer):
+class coursSerializer(serializers.ModelSerializer):
     class Meta:
         model = cours
         fields = [
             'id',
             'nom_cours',
-            'nom_professeur',
+            'nom_enseignant',
             'niveau',
-            'duree',
-
+            'date_creation',
         ]
+        read_only_fields= ["nom_enseignant","date_creation"]
+
     def create(self, validated_data):
-        cours = cours.objects.create_cours(
+
+        request=self.context['request']
+
+        cours = cours.objects.create(
             nom_cours=validated_data['nom_cours'],
-            nom_enseignant=validated_data['nom_enseignant'],
+            nom_enseignant=request.user['nom_enseignant'],
             niveau=validated_data['niveau'],
-            duree=validated_data['duree']
         )
+        return cours_cree
