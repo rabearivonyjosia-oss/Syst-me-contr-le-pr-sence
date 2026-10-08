@@ -24,6 +24,8 @@ class CustomUser(AbstractUser):
     niveau=models.CharField(max_length=20, choices=NIVEAU_CHOICE, blank=True, null=True)
     role=models.CharField(max_length=20, choices=ROLE_CHOICE)
     
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS = ["username"]
 
     def __str__(self):
         return self.username

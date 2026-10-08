@@ -5,13 +5,23 @@ import viteLogo from './assets/vite.svg'
 import './App.css'
 import Login from'./login.jsx'
 import Register from './register.jsx'
+import Dashboard from './acceulle.jsx'
 
 function App(){
     const [page, setPage] = useState("login");
 
    return (
-     <div className="App"> {page === "login" && ( <Login goToRegister={() => setPage("register")} /> )} 
-     {page === "register" && ( <Register goToLogin={() => setPage("Login")} /> )} 
+     <div className="App"> 
+     {page === "login" && ( <Login 
+     goToRegister={() => setPage("register")} 
+     goToDashboard={() =>setPage("acceulle" )}/>
+     )}
+
+     {page === "register" && ( <Register 
+     goToLogin={() => setPage("login")} 
+     goToDashboard={()=> setPage("acceulle")} />
+                                
+    )} 
 
      </div> );
 

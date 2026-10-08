@@ -1,11 +1,18 @@
 import { useState } from "react";
 import "./App.css";
 
-function Login(goToRegister) {
+function Login({goToRegister, goToDashboard}) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
+  const [isloading, setIsLoading] = useState(false);
+
 
   const connexion = async () => {
+    
+    setErrorMsg("");
+    setIsLoading(true);
+
     try {
       const response = await fetch("http://127.0.0.1:8000/login/", {
         method: "POST",
@@ -19,26 +26,28 @@ function Login(goToRegister) {
       });
 
       const data = await response.json();
+      console.log("Réponse Django :", data);
 
       if (response.ok) {
         // On garde le token
         localStorage.setItem("access_token", data.access);
+          goToDashboard();
+      }else {
 
-        alert("Connexion réussie !");
-
-        console.log("Token :", data.access);
-      } else {
-        alert("Email ou mot de passe incorrect");
-        console.log(data);
+        setErrorMsg(
+          data.detail || "Email ou mot de passe incorrect"
+        );
       }
     } catch (error) {
       console.log(error);
-      alert("Impossible de contacter le serveur Django");
-    }
-  };
 
-  const inscription = () => {
-    alert("Page d'inscription");
+      setErrorMsg("Impossible de contacter le serveur. Vérifiez votre connexion.");
+
+    } finally {
+      
+      setIsLoading(false);
+
+    }
   };
 
   return (
@@ -68,9 +77,15 @@ function Login(goToRegister) {
             onChange={(e) => setPassword(e.target.value)}
           />
         </div>
+         {errorMsg && (
+          <p className="error-message">
+            {errorMsg}
+          </p>
+        )}
 
-        <button className="btn-login" onClick={connexion}>
-          Connexion
+
+        <button className="btn-login" onClick={connexion} disabled={isloading}>
+          {isloading? "connexion...":"Connexion"}
         </button>
 
         <button className="btn-register" onClick={goToRegister}>

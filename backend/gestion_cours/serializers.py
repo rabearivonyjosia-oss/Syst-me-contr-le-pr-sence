@@ -11,7 +11,7 @@ class coursSerializer(serializers.ModelSerializer):
             'nom_cours',
             'nom_enseignant',
             'niveau',
-            'date_creation',
+            
         ]
         read_only_fields= ["nom_enseignant","date_creation"]
 

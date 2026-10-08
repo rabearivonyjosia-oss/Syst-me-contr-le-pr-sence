@@ -8,6 +8,7 @@ function Register({ goToLogin }) {
     const [password2, setPassword2] = useState(""); 
     const [role, setRole] = useState("ETUDIANT"); 
     const [niveau, setNiveau] = useState("");
+    const [num_matricule, setNum_matricule]= useState("");
 
     const inscription = async () => {
         if (password !== password2) { 
@@ -21,10 +22,8 @@ function Register({ goToLogin }) {
 
         try{
             const response = await fetch("http://127.0.0.1:8000/register/", { 
-                method: "POST", headers: { "Content-Type": "application/json",
-
-                headers: { "Content-Type": "application/json", 
-
+                method: "POST", 
+                headers: { "Content-Type": "application/json",
                 },
                 body: JSON.stringify({ 
                     username: username, 
@@ -32,11 +31,10 @@ function Register({ goToLogin }) {
                     password: password, 
                     role: role, 
                     niveau: niveau, 
+                    num_matricule:num_matricule,
                 }),
-            }
-
             });
-        
+
             const data = await response.json(); 
             if (response.ok) { alert("Inscription réussie !"); 
                 goToLogin(); 
@@ -55,15 +53,13 @@ function Register({ goToLogin }) {
         <div className="login-box"> 
             <h1>Créer un compte ✨</h1> 
             <p>Inscrivez-vous pour continuer</p>
-       <div className="input-group"> 
-        <label>Nom d'utilisateur</label>
-        <input type="text" placeholder="Votre nom" value={username} onChange={(e) => setUsername(e.target.value)} /> 
+       <div className="input-group">
+        <input type="text" placeholder="nom d'utilisateur" value={username} onChange={(e) => setUsername(e.target.value)} /> 
       </div>
        <div className="input-group"> 
-        <label>Email</label>
         <input type="email" placeholder="exemple@gmail.com" value={email} onChange={(e) => setEmail(e.target.value)} />
         </div>
-        <div className="input-group"> <label>Je suis</label> 
+        <div className="input-group"> <label>je suis</label> 
         <select value={role} onChange={(e) => setRole(e.target.value)} > 
             <option value="ADMIN"> Administrateur </option> 
             <option value="ENSEIGNANT"> Enseignant </option>
@@ -71,7 +67,6 @@ function Register({ goToLogin }) {
         </select>
         </div>
         {role === "ETUDIANT" && ( <div className="input-group"> 
-            <label>Mon niveau</label> 
             <select value={niveau} onChange={(e) => setNiveau(e.target.value)} >
                 <option value=""> -- Choisir un niveau -- </option> 
                 <option value="L1"> Licence 1 </option>
@@ -82,6 +77,10 @@ function Register({ goToLogin }) {
             </select>
         </div>
         )}
+         <div className='input-group'>
+            <label >num_matricule</label>
+            <input type="text" placeholder="num_matricule" value={num_matricule} onChange={(e) => setNum_matricule(e.target.value)}/>
+        </div>
         <div className="input-group"> 
             <label>Mot de passe</label> 
             <input type="password" placeholder="Votre mot de passe" value={password} onChange={(e) => setPassword(e.target.value)} /> 
@@ -90,6 +89,7 @@ function Register({ goToLogin }) {
             <label>Confirmer le mot de passe</label> 
             <input type="password" placeholder="Confirmez votre mot de passe" value={password2} onChange={(e) => setPassword2(e.target.value)} /> 
         </div>
+        
         <button className="btn-login" onClick={inscription} > enregisterer </button>
         <button className="btn-register" onClick={goToLogin} > Retour à la connexion </button> 
         </div> 
