@@ -19,6 +19,7 @@ from django.urls import path
 from gestion_utilisateur .views import RegisterViews
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from gestion_cours.views import coursViews
+from gestion_seance.views import Seanceviews
 
 
 
@@ -32,4 +33,6 @@ urlpatterns = [
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 #pour les enregistrement de cours
     path('cours/', coursViews.as_view(), name='cours'),
+#pour la seance
+    path('seance/', Seanceviews.as_view(), name='seance'),
 ]

@@ -1,2 +1,9 @@
 from django.urls import path
-from . import views
+from .Views import SeanceView
+
+#le API 
+urlpatterns=[
+    path('seance/', Seanceviews.as_view(), name='seance')
+]
+
+
