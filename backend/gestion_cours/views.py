@@ -9,8 +9,13 @@ class coursViews(generics.ListCreateAPIView):
     queryset = cours.objects.all()
     serializer_class = coursSerializer
 
-def perform_create(self, serializer):
-    serializer.save(nom_enseignant=self.request.user)
+    def get_queryset(self):
+        return cours.objects.all()
+
+    def perform_create(self, serializer):
+        serializer.save(
+            nom_enseignant=self.request.user
+        )
 
 
 

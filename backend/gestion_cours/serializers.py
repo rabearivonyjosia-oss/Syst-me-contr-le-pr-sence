@@ -31,11 +31,25 @@ class coursSerializer(serializers.ModelSerializer):
 
         request=self.context['request']
 
-        cours_cree = cours.objects.create(
-            nom_cours=validated_data['nom_cours'],
+         # Vérifier que l'utilisateur est connecté
+        if not request.user.is_authenticated:
+            raise serializers.ValidationError(
+                "Vous devez être connecté pour créer un cours."
+            )
+
+        # Vérifier que l'utilisateur est un enseignant
+        if request.user.role != "ENSEIGNANT":
+            raise serializers.ValidationError(
+                "Seuls les enseignants peuvent créer des cours."
+            )
+
+        return cours.objects.create(
+            nom_cours=validated_data["nom_cours"],
             nom_enseignant=request.user,
-            niveau=validated_data['niveau'],
-            
+            niveau=validated_data["niveau"],
         )
 
-        return cours_cree
+
+        
+
+    

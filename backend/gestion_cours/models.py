@@ -14,9 +14,10 @@ class cours(models.Model):
     ]
 
     nom_cours = models.CharField(max_length=100);
-    nom_enseignant = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='cours_enseignant', blank=True, null=True);
+    nom_enseignant = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='cours_enseignant');
     niveau = models.CharField(max_length=50, choices=NIVEAU_CHOICES, default='Licence 1', blank=True, null=True);
     date_creation= models.DateTimeField(auto_now_add=True);
+    
     
 
 def __str__(self):

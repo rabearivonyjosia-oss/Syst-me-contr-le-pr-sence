@@ -6,6 +6,10 @@ from .models import CustomUser
 class RegisterSerializer(serializers.ModelSerializer):
 
     password = serializers.CharField(write_only=True)
+    role = serializers.ChoiceField(
+        choices=[("ETUDIANT", "Étudiant")],
+        default="ETUDIANT"
+    )
 
     class Meta:
         model = CustomUser
@@ -28,7 +32,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         role = data.get("role")
         num_matricule = data.get("num_matricule")
 
-        # Si étudiant → matricule obligatoire
+         # Si étudiant → matricule obligatoire
         if role == "ETUDIANT" and not num_matricule:
             raise serializers.ValidationError({
                 "num_matricule": "Le numéro matricule est obligatoire pour un étudiant."
@@ -40,9 +44,12 @@ class RegisterSerializer(serializers.ModelSerializer):
                 "num_matricule": "Seul un étudiant peut avoir un numéro matricule."
             })
 
+        data ["num_matricule"]= num_matricule or None    
+
         return data
 
     def create(self, validated_data):
+
         user = CustomUser.objects.create_user(
             username=validated_data['username'],
             email=validated_data["email"],
@@ -50,6 +57,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             role=validated_data.get("role"),
             niveau=validated_data.get("niveau"),
             num_matricule=validated_data.get("num_matricule"),
+
         )
         return user
 
