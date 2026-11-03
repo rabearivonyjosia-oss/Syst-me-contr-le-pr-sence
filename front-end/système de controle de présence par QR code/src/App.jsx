@@ -1,39 +1,45 @@
-import { useEffect, useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
-import Login from'./login.jsx'
+import { useState } from 'react'
+import Login from './login.jsx'
 import Register from './register.jsx'
 import Dashboard from './Dashboard.jsx'
-import cours from './cours.jsx'
-function App(){
-    const [page, setPage] = useState("login");
-    const handleLogout = () => {
+
+const ESPACE_PAGES = ['dashboard', 'Dashboard', 'cours', 'seances', 'etudiants', 'profil'];
+
+function App() {
+  const [page, setPage] = useState("login");
+  const handleLogout = () => {
     localStorage.removeItem("access_token");
     setPage("login");
-    };
+  };
 
-   return (
-     <div className="App"> 
-     {page === "login" && ( 
-      <Login 
-      goToRegister={() => setPage("register")} 
-      goToDashboard={() =>setPage("Dashboard" )}/>
-     )}
+  // Une seule coquille (AppLayout) pour tout l'espace connecté :
+  // navigation identique sur toutes les pages, page courante indiquée.
+  const dansEspace = ESPACE_PAGES.includes(page);
 
-     {page === "register" && ( <Register 
-     goToLogin={() => setPage("login")} 
-      />
-                                
-    )} 
-    {page === "Dashboard" && (<Dashboard
-          onLogout={handleLogout} 
-          currentPage={currentPage}
-          setCurrentPage={setCurrentPage}/>
-    )}
-    </div> );
+  return (
+    <div className="App">
+      {page === "login" && (
+        <Login
+          goToRegister={() => setPage("register")}
+          goToDashboard={() => setPage("dashboard")}
+        />
+      )}
 
+      {page === "register" && (
+        <Register
+          goToLogin={() => setPage("login")}
+        />
+      )}
+
+      {dansEspace && (
+        <Dashboard
+          currentPage={page === "Dashboard" ? "dashboard" : page}
+          setCurrentPage={setPage}
+          onLogout={handleLogout}
+        />
+      )}
+    </div>
+  );
 }
 
 export default App;

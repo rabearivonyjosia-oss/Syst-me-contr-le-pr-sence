@@ -1,111 +1,66 @@
-:root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+@import "tailwindcss";
+@config "../tailwind.config.js";
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+/*
+ * Feuille de style globale — Contrôle de présence par QR code
+ * Design tokens : tailwind.config.js (couleurs, polices, tailles).
+ * Composants réutilisables : src/components/ui/ (Button, Card, Badge, Input, Table, Alert, Modal).
+ */
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@layer base {
+  html {
+    font-size: 100%; /* 16 px — unités relatives (rem) */
+    -webkit-text-size-adjust: 100%;
+  }
 
-  @media (max-width: 1024px) {
-    font-size: 16px;
+  body {
+    @apply bg-slate-100 font-sans text-base text-slate-800 antialiased;
+    line-height: 1.45; /* Interligne 120–145 % (ISO 9241-3 / lisibilité écran) */
+    letter-spacing: 0; /* Pas de tracking allégé artificiellement */
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Focus clavier visible partout — jamais supprimé sans remplacement */
+  :focus-visible {
+    outline: 3px solid #1d4ed8; /* brand-700 — ratio > 3:1 sur fond clair comme sombre */
+    outline-offset: 2px;
+    border-radius: 0.25rem;
+  }
+
+  ::selection {
+    background: #bfdbfe; /* brand-200 */
+    color: #172554; /* brand-950 */
+  }
+
+  /* Titres : interligne ≥ 120 %, graisse marquée, pas d'italique */
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-sans font-bold text-slate-900;
+    letter-spacing: -0.01em;
+  }
+
+  /* Liens : toujours soulignés ou en couleur brand-700 (jamais la seule couleur) */
+  a {
+    @apply text-brand-700 underline-offset-2;
+  }
+  a:hover {
+    @apply text-brand-800 underline;
+  }
+
+  /* Chiffres tabulaires pour les données (tableaux, stats, minuteries) */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
   }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+@layer components {
+  /* Lien d'évitement « Aller au contenu » — visible uniquement au focus clavier */
+  .skip-link {
+    @apply sr-only;
   }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
+  .skip-link:focus-visible {
+    @apply not-sr-only fixed left-4 top-4 z-50 rounded-app bg-brand-700 px-4 py-3 text-base font-semibold text-white shadow-lg;
   }
-}
-
-body {
-  margin: 0;
-}
-
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
-}
-
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
-}
-
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
-p {
-  margin: 0;
-}
-
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
-}
-
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
 }

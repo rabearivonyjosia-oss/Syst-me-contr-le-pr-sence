@@ -1,218 +1,178 @@
-import './App.css';
-import { useState } from 'react';
 import {
-  GraduationCap, 
-  Home, 
-  BookOpen, 
-  Calendar, 
-  Users, 
-  User, 
-  LogOut,
-  Bell, 
-  Clock
+  BookOpen,
+  CalendarDays,
+  Users,
+  CalendarX2,
+  ArrowRight,
+  Clock,
+  GraduationCap,
 } from "lucide-react";
+import AppLayout from './components/layout/AppLayout.jsx';
+import Cours from './cours.jsx';
+import { Button, Card, EmptyState } from './components/ui/index.js';
 
 function Dashboard({ onLogout, currentPage, setCurrentPage }) {
+  // Indicateurs : une seule couleur (bleu) — l'information est portée par le libellé et le chiffre
   const stats = [
-    { label: "Mes cours", value: 3, icon: BookOpen, color: "text-blue-500", bg: "bg-blue-500/10" },
-    { label: "Séances aujourd'hui", value: 1, icon: Calendar, color: "text-emerald-500", bg: "bg-emerald-500/10" },
-    { label: "Étudiants présents", value: 12, icon: Users, color: "text-indigo-500", bg: "bg-indigo-500/10" },
-    { label: "Total étudiants", value: 45, icon: Users, color: "text-pink-500", bg: "bg-pink-500/10" },
+    { label: "Mes cours", value: 3, icon: BookOpen },
+    { label: "Séances aujourd'hui", value: 1, icon: CalendarDays },
+    { label: "Étudiants présents", value: 12, icon: Users },
+    { label: "Total étudiants", value: 45, icon: Users },
   ];
 
   const upcomingSessions = [
-    { id: 1, title: "Développement Web", niveau: "L1 - Informatique", date: "14 oct. 2025 • 08:00 - 10:00", iconBg: "bg-blue-600/20 text-blue-400" },
-    { id: 2, title: "Base de données", niveau: "L2 - Informatique", date: "14 oct. 2025 • 10:00 - 12:00", iconBg: "bg-indigo-600/20 text-indigo-400" },
-    { id: 3, title: "Mathématiques", niveau: "L1 - MIAGE", date: "14 oct. 2025 • 14:00 - 16:00", iconBg: "bg-purple-600/20 text-purple-400" },
+    { id: 1, title: "Développement Web", niveau: "L1 - Informatique", date: "14 oct. 2025 · 08:00 - 10:00" },
+    { id: 2, title: "Base de données", niveau: "L2 - Informatique", date: "14 oct. 2025 · 10:00 - 12:00" },
+    { id: 3, title: "Mathématiques", niveau: "L1 - MIAGE", date: "14 oct. 2025 · 14:00 - 16:00" },
   ];
 
-  return (
-    <div className="flex min-h-screen w-full bg-slate-950 font-sans text-slate-100 pb-20 md:pb-0">
+  const renderContent = () => {
+    switch (currentPage) {
+      case "cours":
+        return <Cours />;
 
-      {/* 1. Barre de navigation latérale (Desktop) */}
-      <aside className="hidden md:flex md:w-64 flex-col justify-between bg-slate-900 border-r border-slate-800 p-4 sticky top-0 h-screen">
-        <div className="space-y-6">
-          <div className="flex items-center space-x-3 px-2 py-3">
-            <div className="w-9 h-9 rounded-xl bg-blue-600/30 border border-blue-400/30 flex items-center justify-center">
-              <GraduationCap className="w-5 h-5 text-blue-400" />
-            </div>
-            <span className="font-bold tracking-tight text-white text-base">Présence QR</span>
+      case "seances":
+        return (
+          <div className="mx-auto w-full max-w-6xl space-y-4 p-4 sm:p-6 lg:p-8">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Séances</h1>
+            <EmptyState
+              icon={CalendarX2}
+              title="Aucune séance planifiée"
+              description="Les prochaines séances de vos cours apparaîtront ici. Créez une séance depuis la page du cours concerné."
+              action={
+                <Button variant="secondary" size="md" onClick={() => setCurrentPage("cours")}>
+                  Voir mes cours
+                  <ArrowRight aria-hidden="true" className="h-5 w-5" />
+                </Button>
+              }
+            />
           </div>
+        );
 
-          <nav className="space-y-1">
-            <button 
-              onClick={() => setCurrentPage("dashboard")} 
-              className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium text-sm transition-colors ${currentPage === "dashboard" ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" : "text-slate-400 hover:text-white hover:bg-slate-800/60"}`}
-            >
-              <Home className="w-4 h-4" />
-              <span>Accueil</span>
-            </button>
-            <button 
-              onClick={() => setCurrentPage("cours")} 
-              className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium text-sm transition-colors ${currentPage === "cours" ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" : "text-slate-400 hover:text-white hover:bg-slate-800/60"}`}
-            >
-              <BookOpen className="w-4 h-4" />
-              <span>Cours</span>
-            </button>
-            <button 
-              onClick={() => setCurrentPage("seances")} 
-              className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium text-sm transition-colors ${currentPage === "seances" ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" : "text-slate-400 hover:text-white hover:bg-slate-800/60"}`}
-            >
-              <Calendar className="w-4 h-4" />
-              <span>Séances</span>
-            </button>
-            <button 
-              onClick={() => setCurrentPage("etudiants")} 
-              className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium text-sm transition-colors ${currentPage === "etudiants" ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" : "text-slate-400 hover:text-white hover:bg-slate-800/60"}`}
-            >
-              <Users className="w-4 h-4" />
-              <span>Étudiants</span>
-            </button>
-            <button 
-              onClick={() => setCurrentPage("profil")} 
-              className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium text-sm transition-colors ${currentPage === "profil" ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" : "text-slate-400 hover:text-white hover:bg-slate-800/60"}`}
-            >
-              <User className="w-4 h-4" />
-              <span>Profil</span>
-            </button>
-          </nav>
-        </div>
-
-        <div>
-          <button 
-            onClick={onLogout}
-            className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-red-400 hover:bg-red-500/10 font-medium text-sm transition-colors"
-          >
-            <LogOut className="w-4 h-4" />
-            <span>Déconnexion</span>
-          </button>
-        </div>
-      </aside>
-
-      {/* 2. Contenu principal du Tableau de bord */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-y-auto">
-        
-        <header className="h-16 border-b border-slate-800 bg-slate-900/50 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-20">
-          <div className="flex items-center space-x-3 md:hidden">
-            <GraduationCap className="w-6 h-6 text-blue-400" />
-            <span className="font-bold text-white">Présence QR</span>
+      case "etudiants":
+        return (
+          <div className="mx-auto w-full max-w-6xl space-y-4 p-4 sm:p-6 lg:p-8">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Étudiants</h1>
+            <EmptyState
+              icon={Users}
+              title="Aucun étudiant à afficher"
+              description="La liste des étudiants inscrits à vos cours s'affichera ici, avec leur statut de présence par séance."
+            />
           </div>
-          <div className="hidden md:block">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Tableau de bord Enseignant</span>
-          </div>
+        );
 
-          <div className="flex items-center space-x-4 ml-auto">
-            <button className="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 hover:text-white transition-colors relative">
-              <Bell className="w-4 h-4" />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-blue-500 rounded-full"></span>
-            </button>
-
-            <div className="flex items-center space-x-3 pl-2 border-l border-slate-800">
-              <div className="w-9 h-9 rounded-full bg-blue-600/30 border border-blue-500/40 flex items-center justify-center text-blue-400 font-bold text-sm">
-                MR
+      case "profil":
+        return (
+          <div className="mx-auto w-full max-w-6xl space-y-4 p-4 sm:p-6 lg:p-8">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Mon profil</h1>
+            <Card className="flex flex-wrap items-center gap-4 p-6">
+              <span
+                aria-hidden="true"
+                className="flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-50 text-brand-700"
+              >
+                <GraduationCap className="h-8 w-8" strokeWidth={1.75} />
+              </span>
+              <div className="space-y-0.5">
+                <p className="text-xl font-bold text-slate-900">Mr / Mdm</p>
+                <p className="text-base text-slate-600">Enseignant — informations du compte à compléter.</p>
               </div>
-              <div className="hidden sm:block text-left">
-                <p className="text-sm font-semibold text-white leading-tight">M. Rakoto</p>
-                <p className="text-xs text-slate-400">Utilisateur</p>
-              </div>
-            </div>
+            </Card>
           </div>
-        </header>
+        );
 
-        <div className="p-6 sm:p-8 space-y-8 max-w-6xl w-full mx-auto">
-          
-          <div className="space-y-1">
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-2">
-              Bonjour👋
-            </h1>
-            <p className="text-sm text-slate-400">
-              Voici un aperçu de votre activité d'aujourd'hui.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {stats.map((stat, index) => {
-              const Icon = stat.icon;
-              return (
-                <div key={index} className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex items-center justify-between shadow-sm">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-slate-400">{stat.label}</p>
-                    <p className="text-2xl font-bold text-white">{stat.value}</p>
-                  </div>
-                  <div className={`w-12 h-12 rounded-xl ${stat.bg} ${stat.color} flex items-center justify-center`}>
-                    <Icon className="w-6 h-6" />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-white tracking-tight">Prochaines séances</h2>
-              <button className="text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors">
-                Voir tout
-              </button>
+      case "dashboard":
+      default:
+        return (
+          <div className="mx-auto w-full max-w-6xl space-y-8 p-4 sm:p-6 lg:p-8">
+            <div className="space-y-1">
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+                Bonjour
+              </h1>
+              <p className="max-w-prose65 text-base text-slate-600">
+                Voici un aperçu de votre activité du jour.
+              </p>
             </div>
 
-            <div className="space-y-3">
-              {upcomingSessions.map((session) => (
-                <div 
-                  key={session.id} 
-                  className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center justify-between hover:border-slate-700 transition-all"
+            {/* Indicateurs */}
+            <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
+              {stats.map((stat) => {
+                const Icon = stat.icon;
+                return (
+                  <Card key={stat.label} className="flex items-center justify-between gap-3 p-4 sm:p-5">
+                    <div className="space-y-1">
+                      <dt className="text-sm font-medium text-slate-600">{stat.label}</dt>
+                      <dd className="text-2xl font-bold tabular-nums text-slate-900">{stat.value}</dd>
+                    </div>
+                    <span
+                      aria-hidden="true"
+                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-app bg-brand-50 text-brand-700"
+                    >
+                      <Icon className="h-6 w-6" strokeWidth={1.75} />
+                    </span>
+                  </Card>
+                );
+              })}
+            </dl>
+
+            {/* Prochaines séances */}
+            <section aria-labelledby="prochaines-seances" className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <h2 id="prochaines-seances" className="text-xl font-bold text-slate-900">
+                  Prochaines séances
+                </h2>
+                <Button
+                  variant="ghost"
+                  size="md"
+                  onClick={() => setCurrentPage("seances")}
+                  className="text-brand-700 hover:bg-brand-50 hover:text-brand-800"
                 >
-                  <div className="flex items-center space-x-4">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${session.iconBg}`}>
-                      <BookOpen className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-semibold text-white">{session.title}</h3>
-                      <p className="text-xs text-slate-400">{session.niveau}</p>
-                    </div>
-                  </div>
+                  <span>Voir tout</span>
+                  <ArrowRight aria-hidden="true" className="h-4 w-4" />
+                </Button>
+              </div>
 
-                  <div className="flex items-center space-x-6">
-                    <div className="hidden sm:flex items-center space-x-1.5 text-xs text-slate-400 bg-slate-800/50 px-3 py-1.5 rounded-lg border border-slate-800">
-                      <Clock className="w-3.5 h-3.5 text-slate-500" />
-                      <span>{session.date}</span>
-                    </div>
-                    <button className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-xl transition-colors shadow-md shadow-blue-600/20">
-                      Voir
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+              <ul className="space-y-3">
+                {upcomingSessions.map((session) => (
+                  <li key={session.id}>
+                    <Card className="flex flex-wrap items-center justify-between gap-3 p-4 transition-shadow hover:shadow-md">
+                      <div className="flex min-w-0 items-center gap-4">
+                        <span
+                          aria-hidden="true"
+                          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-app bg-brand-50 text-brand-700"
+                        >
+                          <BookOpen className="h-6 w-6" strokeWidth={1.75} />
+                        </span>
+                        <div className="min-w-0">
+                          <h3 className="text-lg font-semibold leading-snug text-slate-900">
+                            {session.title}
+                          </h3>
+                          <p className="text-sm text-slate-600">{session.niveau}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex w-full flex-wrap items-center justify-between gap-3 sm:w-auto sm:justify-end">
+                        <p className="flex items-center gap-1.5 rounded-app border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm font-medium tabular-nums text-slate-700">
+                          <Clock aria-hidden="true" className="h-4 w-4 text-slate-500" />
+                          <span>{session.date}</span>
+                        </p>
+                        <Button variant="secondary" size="md" onClick={() => setCurrentPage("seances")}>
+                          Voir
+                        </Button>
+                      </div>
+                    </Card>
+                  </li>
+                ))}
+              </ul>
+            </section>
           </div>
+        );
+    }
+  };
 
-        </div>
-      </main>
-
-      {/* 3. Barre de navigation inférieure (Mobile uniquement) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 px-4 py-2 flex items-center justify-around z-30">
-        <button onClick={() => setCurrentPage("dashboard")} className={`flex flex-col items-center py-1 px-2 ${currentPage === "dashboard" ? "text-blue-500" : "text-slate-400"}`}>
-          <Home className="w-5 h-5" />
-          <span className="text-[10px] mt-1">Accueil</span>
-        </button>
-        <button onClick={() => setCurrentPage("cours")} className={`flex flex-col items-center py-1 px-2 ${currentPage === "cours" ? "text-blue-500" : "text-slate-400"}`}>
-          <BookOpen className="w-5 h-5" />
-          <span className="text-[10px] mt-1">Cours</span>
-        </button>
-        <button onClick={() => setCurrentPage("seances")} className={`flex flex-col items-center py-1 px-2 ${currentPage === "seances" ? "text-blue-500" : "text-slate-400"}`}>
-          <Calendar className="w-5 h-5" />
-          <span className="text-[10px] mt-1">Séances</span>
-        </button>
-        <button onClick={() => setCurrentPage("etudiants")} className={`flex flex-col items-center py-1 px-2 ${currentPage === "etudiants" ? "text-blue-500" : "text-slate-400"}`}>
-          <Users className="w-5 h-5" />
-          <span className="text-[10px] mt-1">Étudiants</span>
-        </button>
-        <button onClick={() => setCurrentPage("profil")} className={`flex flex-col items-center py-1 px-2 ${currentPage === "profil" ? "text-blue-500" : "text-slate-400"}`}>
-          <User className="w-5 h-5" />
-          <span className="text-[10px] mt-1">Profil</span>
-        </button>
-      </nav>
-
-    </div>
+  return (
+    <AppLayout currentPage={currentPage} onNavigate={setCurrentPage} onLogout={onLogout}>
+      {renderContent()}
+    </AppLayout>
   );
 }
 

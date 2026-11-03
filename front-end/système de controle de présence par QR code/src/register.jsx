@@ -1,289 +1,234 @@
-import { useState } from 'react';
-import { GraduationCap, User, Mail, Lock, Hash, ChevronDown, Eye, EyeOff } from 'lucide-react';
-import './App.css';
+import { useEffect, useRef, useState } from 'react';
+import { User, Mail, Lock, Hash, Eye, EyeOff } from 'lucide-react';
+import AuthLayout from './components/layout/AuthLayout.jsx';
+import { Alert, Button, Input, Select } from './components/ui/index.js';
 
-function Register({ goToLogin }) { 
-    const [username, setUsername] = useState(""); 
-    const [email, setEmail] = useState(""); 
-    const [password, setPassword] = useState(""); 
-    const [password2, setPassword2] = useState(""); 
+function Register({ goToLogin }) {
+    const [username, setUsername] = useState("");
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [password2, setPassword2] = useState("");
     const [showPassword, setShowPassword] = useState(false);
     const [showPassword2, setShowPassword2] = useState(false);
-    const [role, setRole] = useState("ETUDIANT"); 
+    const [role, setRole] = useState("ETUDIANT");
     const [niveau, setNiveau] = useState("");
     const [num_matricule, setNum_matricule] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const [formError, setFormError] = useState("");
+    const [formSuccess, setFormSuccess] = useState("");
+    const redirectTimer = useRef(null);
+
+    useEffect(() => () => {
+        if (redirectTimer.current) window.clearTimeout(redirectTimer.current);
+    }, []);
 
     const inscription = async (e) => {
         e.preventDefault();
+        setFormError("");
+        setFormSuccess("");
 
-        if (password !== password2) { 
-            alert("Les mots de passe ne sont pas identiques"); 
+        if (password !== password2) {
+            setFormError("Les deux mots de passe ne sont pas identiques.");
             return;
         }
-        if (role === "ETUDIANT" && niveau === "") { 
-            alert("Veuillez choisir votre niveau"); 
-            return; 
+        if (role === "ETUDIANT" && niveau === "") {
+            setFormError("Veuillez choisir votre niveau.");
+            return;
         }
 
         setIsLoading(true);
 
         try {
-            const response = await fetch("http://127.0.0.1:8000/register/", { 
-                method: "POST", 
-                headers: { 
+            const response = await fetch("http://127.0.0.1:8000/register/", {
+                method: "POST",
+                headers: {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify({ 
-                    username: username, 
-                    email: email, 
-                    password: password, 
-                    role: role, 
-                    niveau: niveau, 
+                body: JSON.stringify({
+                    username: username,
+                    email: email,
+                    password: password,
+                    role: role,
+                    niveau: niveau,
                     num_matricule: num_matricule,
                 }),
             });
 
-            const data = await response.json(); 
-            if (response.ok) { 
-                alert("Inscription réussie !"); 
-                goToLogin(); 
-            } else { 
-                console.log(data); 
-                alert("Erreur lors de l'inscription"); 
+            const data = await response.json();
+            if (response.ok) {
+                setFormSuccess("Compte créé avec succès. Redirection vers la page de connexion…");
+                redirectTimer.current = window.setTimeout(goToLogin, 1500);
+            } else {
+                console.log(data);
+                setFormError(
+                    data?.detail ||
+                    (typeof data === "object" ? Object.values(data).flat().join(" ") : "") ||
+                    "Erreur lors de la création du compte. Vérifiez les informations saisies."
+                );
             }
-        } catch (error) { 
-            console.log(error); 
-            alert("Impossible de contacter le serveur Django"); 
+        } catch (error) {
+            console.log(error);
+            setFormError("Impossible de contacter le serveur. Vérifiez votre connexion puis réessayez.");
         } finally {
             setIsLoading(false);
         }
     };
 
+    const passwordToggle = (shown, setShown, label) => (
+        <button
+            type="button"
+            onClick={() => setShown(!shown)}
+            aria-label={shown ? `Masquer ${label}` : `Afficher ${label}`}
+            aria-pressed={shown}
+            title={shown ? `Masquer ${label}` : `Afficher ${label}`}
+            className="flex h-11 w-11 items-center justify-center rounded-app text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
+        >
+            {shown ? (
+                <EyeOff aria-hidden="true" className="h-5 w-5" />
+            ) : (
+                <Eye aria-hidden="true" className="h-5 w-5" />
+            )}
+        </button>
+    );
+
     return (
-        <div className="flex min-h-screen w-full bg-slate-900 font-sans">
-            {/* Panneau gauche (visible sur grand écran) */}
-            <div className="hidden lg:flex lg:w-5/12 flex-col justify-between p-12 bg-gradient-to-b from-blue-950 via-blue-900 to-slate-900 text-white relative overflow-hidden border-r border-slate-800">
-                <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#3b82f6_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none"></div>
-
-                <div className="relative z-10 flex items-center space-x-3"></div>
-
-                <div className="relative z-10 space-y-4 my-auto">
-                    <div className="w-14 h-14 rounded-2xl bg-blue-600/30 border border-blue-400/30 flex items-center justify-center backdrop-blur-md mb-6 shadow-lg shadow-blue-900/50">
-                        <GraduationCap className="w-8 h-8 text-blue-400" />
-                    </div>
-                    <h1 className="text-4xl font-extrabold tracking-tight">
-                        Contrôle de présence<br />par QR code
-                    </h1>
-                    <p className="text-slate-300 text-base max-w-sm leading-relaxed">
-                        Une solution simple et moderne pour une gestion efficace des présences pour une salle de classe.
+        <AuthLayout panelTitle="Rejoignez Présence QR">
+            <div className="space-y-5">
+                <div className="space-y-1.5">
+                    <h2 className="text-2xl font-bold tracking-tight text-slate-900">
+                        Créer un compte
+                    </h2>
+                    <p className="text-base text-slate-600">
+                        Inscrivez-vous pour accéder à votre espace.
                     </p>
                 </div>
 
-                <div className="relative z-10 text-xs text-slate-500">
-                     Système de gestion académique
-                </div>
-            </div>
+                <form onSubmit={inscription} className="space-y-4">
+                    <Input
+                        id="username"
+                        label="Nom d'utilisateur"
+                        type="text"
+                        name="username"
+                        autoComplete="username"
+                        required
+                        placeholder="ex : amadou.ndiaye"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        leadingIcon={User}
+                    />
 
-            {/* Panneau droit : Formulaire d'inscription */}
-            <div className="flex-1 flex items-center justify-center p-6 sm:p-12 bg-slate-900 overflow-y-auto">
-                <div className="w-full max-w-md space-y-6 bg-slate-900 p-4 sm:p-8 rounded-2xl my-auto">
-                    
-                    <div className="space-y-1">
-                        <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
-                            Créer un compte
-                        </h2>
-                        <p className="text-xs sm:text-sm text-slate-400">
-                            Inscrivez-vous pour accéder à votre espace
-                        </p>
+                    <Input
+                        id="email"
+                        label="Adresse email"
+                        type="email"
+                        name="email"
+                        autoComplete="email"
+                        required
+                        placeholder="exemple@universite.sn"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        leadingIcon={Mail}
+                    />
+
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <Select
+                            id="role"
+                            label="Rôle"
+                            name="role"
+                            value={role}
+                            onChange={(e) => setRole(e.target.value)}
+                        >
+                            <option value="ETUDIANT">Étudiant</option>
+                            <option value="ENSEIGNANT">Enseignant</option>
+                            <option value="ADMIN">Administrateur</option>
+                        </Select>
+
+                        {role === "ETUDIANT" && (
+                            <Select
+                                id="niveau"
+                                label="Niveau"
+                                name="niveau"
+                                required
+                                value={niveau}
+                                onChange={(e) => setNiveau(e.target.value)}
+                            >
+                                <option value="">Choisir…</option>
+                                <option value="L1">Licence 1</option>
+                                <option value="L2">Licence 2</option>
+                                <option value="L3">Licence 3</option>
+                                <option value="M1">Master 1</option>
+                                <option value="M2">Master 2</option>
+                            </Select>
+                        )}
                     </div>
 
-                    <form onSubmit={inscription} className="space-y-4">
-                        {/* Nom d'utilisateur */}
-                        <div className="space-y-1">
-                            <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-                                Nom d'utilisateur
-                            </label>
-                            <div className="relative flex items-center">
-                                <span className="absolute left-3.5 text-slate-400">
-                                    <User className="w-5 h-5" />
-                                </span>
-                                <input
-                                    type="text"
-                                    required
-                                    placeholder="Nom d'utilisateur"
-                                    value={username}
-                                    onChange={(e) => setUsername(e.target.value)}
-                                    className="w-full pl-11 pr-4 py-2.5 bg-slate-800/60 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                                />
-                            </div>
-                        </div>
+                    <Input
+                        id="num_matricule"
+                        label={role === "ETUDIANT" ? "Numéro matricule" : "Numéro matricule (facultatif)"}
+                        type="text"
+                        name="num_matricule"
+                        placeholder="ex : 2025L1INF123"
+                        value={num_matricule}
+                        onChange={(e) => setNum_matricule(e.target.value)}
+                        leadingIcon={Hash}
+                    />
 
-                        {/* Email */}
-                        <div className="space-y-1">
-                            <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-                                Email
-                            </label>
-                            <div className="relative flex items-center">
-                                <span className="absolute left-3.5 text-slate-400">
-                                    <Mail className="w-5 h-5" />
-                                </span>
-                                <input
-                                    type="email"
-                                    required
-                                    placeholder="exemple@gmail.com"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    className="w-full pl-11 pr-4 py-2.5 bg-slate-800/60 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                                />
-                            </div>
-                        </div>
+                    <Input
+                        id="password"
+                        label="Mot de passe"
+                        type={showPassword ? "text" : "password"}
+                        name="new-password"
+                        autoComplete="new-password"
+                        required
+                        placeholder="Votre mot de passe"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        leadingIcon={Lock}
+                        trailing={passwordToggle(showPassword, setShowPassword, 'le mot de passe')}
+                    />
 
-                        {/* Grille Rôle & Niveau */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div className="space-y-1">
-                                <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-                                    Rôle
-                                </label>
-                                <div className="relative flex items-center">
-                                    <select
-                                        value={role}
-                                        onChange={(e) => setRole(e.target.value)}
-                                        className="w-full px-3 py-2.5 bg-slate-800/60 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none transition-all cursor-pointer"
-                                    >
-                                        <option value="ETUDIANT" className="bg-slate-900 text-white">Étudiant</option>
-                                        <option value="ENSEIGNANT" className="bg-slate-900 text-white">Enseignant</option>
-                                        <option value="ADMIN" className="bg-slate-900 text-white">Administrateur</option>
-                                    </select>
-                                    <span className="absolute right-3.5 text-slate-400 pointer-events-none">
-                                        <ChevronDown className="w-4 h-4" />
-                                    </span>
-                                </div>
-                            </div>
+                    <Input
+                        id="password2"
+                        label="Confirmer le mot de passe"
+                        type={showPassword2 ? "text" : "password"}
+                        name="confirm-password"
+                        autoComplete="new-password"
+                        required
+                        placeholder="Confirmez votre mot de passe"
+                        value={password2}
+                        onChange={(e) => setPassword2(e.target.value)}
+                        leadingIcon={Lock}
+                        trailing={passwordToggle(showPassword2, setShowPassword2, 'la confirmation')}
+                    />
 
-                            {role === "ETUDIANT" && (
-                                <div className="space-y-1">
-                                    <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-                                        Niveau
-                                    </label>
-                                    <div className="relative flex items-center">
-                                        <select
-                                            value={niveau}
-                                            onChange={(e) => setNiveau(e.target.value)}
-                                            className="w-full px-3 py-2.5 bg-slate-800/60 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none transition-all cursor-pointer"
-                                        >
-                                            <option value="" className="bg-slate-900 text-slate-400">Choisir...</option>
-                                            <option value="L1" className="bg-slate-900 text-white">Licence 1</option>
-                                            <option value="L2" className="bg-slate-900 text-white">Licence 2</option>
-                                            <option value="L3" className="bg-slate-900 text-white">Licence 3</option>
-                                            <option value="M1" className="bg-slate-900 text-white">Master 1</option>
-                                            <option value="M2" className="bg-slate-900 text-white">Master 2</option>
-                                        </select>
-                                        <span className="absolute right-3.5 text-slate-400 pointer-events-none">
-                                            <ChevronDown className="w-4 h-4" />
-                                        </span>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+                    {formError && (
+                        <Alert variant="danger" title="Inscription impossible">
+                            {formError}
+                        </Alert>
+                    )}
+                    {formSuccess && (
+                        <Alert variant="success" title="Compte créé">
+                            {formSuccess}
+                        </Alert>
+                    )}
 
-                        {/* Numéro de matricule (Optionnel ou visible selon préférence) */}
-                        <div className="space-y-1">
-                            <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-                                Numéro matricule {role === "ETUDIANT" && "(pour les étudiants)"}
-                            </label>
-                            <div className="relative flex items-center">
-                                <span className="absolute left-3.5 text-slate-400">
-                                    <Hash className="w-5 h-5" />
-                                </span>
-                                <input
-                                    type="text"
-                                    placeholder="ex: 2025L1INF123"
-                                    value={num_matricule}
-                                    onChange={(e) => setNum_matricule(e.target.value)}
-                                    className="w-full pl-11 pr-4 py-2.5 bg-slate-800/60 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                                />
-                            </div>
-                        </div>
+                    <Button type="submit" size="lg" className="w-full" loading={isLoading}>
+                        {isLoading ? "Inscription en cours…" : "S'inscrire"}
+                    </Button>
+                </form>
 
-                        {/* Mot de passe */}
-                        <div className="space-y-1">
-                            <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-                                Mot de passe
-                            </label>
-                            <div className="relative flex items-center">
-                                <span className="absolute left-3.5 text-slate-400">
-                                    <Lock className="w-5 h-5" />
-                                </span>
-                                <input
-                                    type={showPassword ? "text" : "password"}
-                                    required
-                                    placeholder="Mot de passe"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full pl-11 pr-12 py-2.5 bg-slate-800/60 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3.5 text-slate-400 hover:text-slate-200 transition-colors focus:outline-none"
-                                >
-                                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Confirmer le mot de passe */}
-                        <div className="space-y-1">
-                            <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-                                Confirmer le mot de passe
-                            </label>
-                            <div className="relative flex items-center">
-                                <span className="absolute left-3.5 text-slate-400">
-                                    <Lock className="w-5 h-5" />
-                                </span>
-                                <input
-                                    type={showPassword2 ? "text" : "password"}
-                                    required
-                                    placeholder="Confirmez votre mot de passe"
-                                    value={password2}
-                                    onChange={(e) => setPassword2(e.target.value)}
-                                    className="w-full pl-11 pr-12 py-2.5 bg-slate-800/60 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword2(!showPassword2)}
-                                    className="absolute right-3.5 text-slate-400 hover:text-slate-200 transition-colors focus:outline-none"
-                                >
-                                    {showPassword2 ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Bouton d'inscription */}
-                        <button
-                            type="submit"
-                            disabled={isLoading}
-                            className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-medium rounded-xl shadow-lg shadow-blue-600/30 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center justify-center mt-2"
-                        >
-                            {isLoading ? "Inscription en cours..." : "S'inscrire"}
-                        </button>
-                    </form>
-
-                    {/* Retour vers la connexion */}
-                    <div className="text-center text-xs text-slate-400 pt-1">
-                        Déjà un compte ?{" "}
-                        <button
-                            onClick={goToLogin}
-                            className="text-blue-400 hover:text-blue-300 font-semibold transition-colors focus:outline-none underline ml-1"
-                        >
-                            Retour au login
-                        </button>
-                    </div>
-
-                </div>
+                <p className="text-center text-base text-slate-600">
+                    Déjà un compte ?{" "}
+                    <button
+                        type="button"
+                        onClick={goToLogin}
+                        className="font-semibold text-brand-700 underline underline-offset-2 transition-colors hover:text-brand-800"
+                    >
+                        Retour à la connexion
+                    </button>
+                </p>
             </div>
-        </div>
+        </AuthLayout>
     );
 }
 
