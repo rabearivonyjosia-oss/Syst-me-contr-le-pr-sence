@@ -1,9 +1,10 @@
-from django.urls import path
-from .Views import SeanceView
+"""Routes des séances (montées sous /api/)."""
 
-#le API 
-urlpatterns=[
-    path('seance/', Seanceviews.as_view(), name='seance')
-]
+from rest_framework.routers import SimpleRouter
 
+from .views import SeanceViewSet
 
+router = SimpleRouter()
+router.register("seances", SeanceViewSet, basename="seance")
+
+urlpatterns = router.urls

@@ -1,27 +1,48 @@
+﻿"""Mod\u00e8le des cours et des inscriptions d'\u00e9tudiants."""
+
 from django.db import models
+
 from gestion_utilisateur.models import CustomUser
 
 
-# Create le modela des cours des eleves par les professeurs
 class cours(models.Model):
-     
-    NIVEAU_CHOICES = [
-        ('Licence 1', 'L1'),
-        ('Licence 2', 'L2'),
-        ('Licence 3', 'L3'),
-        ('Master 1', 'M1'),
-        ('Master 2', 'M2'),
-    ]
+    """Cours dispens\u00e9 par un enseignant \u00e0 un groupe d'\u00e9tudiants."""
 
-    nom_cours = models.CharField(max_length=100)
-    enseignant = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='cours_enseignant');
-    niveau = models.CharField(max_length=50, choices=NIVEAU_CHOICES, default='Licence 1', blank=True, null=True)
-    date_creation= models.DateTimeField(auto_now_add=True)
-    
-    
+    NIVEAU_CHOICES = CustomUser.Niveau.choices
+
+    nom_cours = models.CharField(max_length=120)
+    enseignant = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name="cours_enseignant",
+        limit_choices_to={"role": CustomUser.Role.ENSEIGNANT},
+    )
+    etudiants = models.ManyToManyField(
+        CustomUser,
+        blank=True,
+        related_name="cours_suivis",
+        limit_choices_to={"role": CustomUser.Role.ETUDIANT},
+    )
+    niveau = models.CharField(
+        max_length=2,
+        choices=NIVEAU_CHOICES,
+        default=CustomUser.Niveau.L1,
+    )
+    date_creation = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["nom_cours"]
+        verbose_name = "Cours"
+        verbose_name_plural = "Cours"
 
     def __str__(self):
-        return f"{self.nom_cours}-{self.enseignant}"
-    
+        return f"{self.nom_cours} ({self.get_niveau_display()})"
 
+    @property
+    def nb_etudiants(self):
+        return self.etudiants.count()
+
+    @property
+    def nb_seances(self):
+        return self.seances.count()
 

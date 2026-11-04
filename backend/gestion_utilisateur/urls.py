@@ -1,10 +1,21 @@
+"""Routes d'authentification (montées sous /api/auth/)."""
+
 from django.urls import path
-from .views import ResgisterView
+from rest_framework_simplejwt.views import TokenRefreshView
 
-
-#indique aya mandeha demande reny
+from .views import (
+    ChangementMotDePasseView,
+    ConnexionView,
+    DeconnexionView,
+    InscriptionView,
+    MoiView,
+)
 
 urlpatterns = [
-    path('register/', RegisterView.as_view(), name='register')
-
+    path("login/", ConnexionView.as_view(), name="login"),
+    path("refresh/", TokenRefreshView.as_view(), name="token-refresh"),
+    path("me/", MoiView.as_view(), name="moi"),
+    path("register/", InscriptionView.as_view(), name="register"),
+    path("change-password/", ChangementMotDePasseView.as_view(), name="change-password"),
+    path("logout/", DeconnexionView.as_view(), name="logout"),
 ]

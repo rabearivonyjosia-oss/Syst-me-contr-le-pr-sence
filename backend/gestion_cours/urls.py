@@ -1,7 +1,10 @@
-from django.urls import path
-from .Views import coursViews
+"""Routes des cours (montées sous /api/)."""
 
-urlpatterns = [
-    path('cours/', coursViews.as_view(), name='cours'),
-    
-]
+from rest_framework.routers import SimpleRouter
+
+from .views import CoursViewSet
+
+router = SimpleRouter()
+router.register("cours", CoursViewSet, basename="cours")
+
+urlpatterns = router.urls

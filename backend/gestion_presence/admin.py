@@ -1,16 +1,20 @@
+"""Administration des présences."""
+
 from django.contrib import admin
+
 from .models import Presence
 
-# Register your models here.
+
 @admin.register(Presence)
 class PresenceAdmin(admin.ModelAdmin):
-    list_display = ('étudiant', 'seance', 'timestamp')
-    list_filter = ('seance', 'timestamp')
+    list_display = ("etudiant", "seance", "statut", "source", "timestamp")
+    list_filter = ("statut", "source", "seance__cours")
     search_fields = (
-        'etudiant__username',
-        'etudiant__first_name',
-        'etudiant__last_name',
+        "etudiant__username",
+        "etudiant__first_name",
+        "etudiant__last_name",
+        "etudiant__email",
     )
-    readonly_fields = ('timestamp',)
-    ordering = ('-timestamp',)
-    list_select_related = ('étudiant', 'seance')
+    readonly_fields = ("timestamp", "modifie_le")
+    ordering = ("-timestamp",)
+    list_select_related = ("etudiant", "seance")

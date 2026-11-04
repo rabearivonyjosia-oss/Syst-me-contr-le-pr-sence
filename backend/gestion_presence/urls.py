@@ -1,7 +1,11 @@
+"""Routes de l'application présences (montées sous /api/)."""
+
 from django.urls import path
-from .views import PresenceListCreateView, PresenceDetailView
+
+from .views import ExportPresencesView, ScanPresenceView, StatistiquesView
 
 urlpatterns = [
-    path ('Presence/', PresenceViews.as_view(), name="Presence")
-    
+    path("presences/scan/", ScanPresenceView.as_view(), name="presence-scan"),
+    path("stats/", StatistiquesView.as_view(), name="statistiques"),
+    path("exports/presences/", ExportPresencesView.as_view(), name="export-presences"),
 ]
