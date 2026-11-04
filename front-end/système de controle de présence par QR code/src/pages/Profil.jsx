@@ -1,408 +1,415 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
-  Award,
-  ChevronRight,
+  CalendarDays,
+  Eye,
+  EyeOff,
+  GraduationCap,
   Hash,
-  Key,
-  LogOut,
+  KeyRound,
+  Lock,
   Mail,
-  Pencil,
-  Shield,
-  User,
+  Phone,
+  Save,
+  ShieldCheck,
+  UserRound,
 } from 'lucide-react';
-import AppLayout from '../components/layout/AppLayout.jsx';
-import { Alert, Button, Card, EmptyState, Input, Select, Spinner } from '../components/ui/index.js';
+import Page from '../components/layout/Page.jsx';
+import {
+  Badge,
+  Button,
+  Card,
+  CardBody,
+  CardHeader,
+  Input,
+  PageHeader,
+  Select,
+} from '../components/ui/index.js';
 import { useAuth } from '../context/AuthContext.jsx';
-import apiClient, { messageDepuisErreur } from '../services/api.js';
+import { usePageTitle } from '../hooks/usePageTitle.js';
+import { useToast } from '../context/ToastContext.jsx';
+import {
+  authApi,
+  champsDepuisErreur,
+  messageDepuisErreur,
+} from '../services/api.js';
+import { LIBELLES_ROLE, NIVEAUX } from '../utils/constants.js';
+import { formatDate, initiales } from '../utils/format.js';
+import { validerMotDePasse, validerProfil } from '../utils/validation.js';
 
-/*
- * Page « Mon profil » (Phase 3).
- * Backend inchangé : l'endpoint /api/profile/ n'existe pas encore côté serveur.
- * - Sans profil serveur : affiche un état vide explicite et ne montre AUCUNE
- *   valeur factice (remplace l'ancien « abc@gmail.com » de profile.jsx).
- * - Dès que l'API existe, GET /api/profile/ alimente l'affichage ; PATCH /api/profile/
- *   et POST /api/profile/change-password/ (ou PUT : le frontend suit les deux
- *   conventions connues) apparaissent dès qu'ils répondent.
- * - Wording canonique : « Présence QR » (marque), étiquettes de rôle uniquement.
- */
+function Profil() {
+  const { utilisateur, role, estEtudiant, majUtilisateur } = useAuth();
+  const { succes } = useToast();
 
-const NIVEAU_OPTIONS = [
-  { value: '', label: 'Choisir…' },
-  { value: 'L1', label: 'Licence 1' },
-  { value: 'L2', label: 'Licence 2' },
-  { value: 'L3', label: 'Licence 3' },
-  { value: 'M1', label: 'Master 1' },
-  { value: 'M2', label: 'Master 2' },
-];
+  const [valeurs, setValeurs] = useState(() => ({
+    username: utilisateur?.username ?? '',
+    email: utilisateur?.email ?? '',
+    first_name: utilisateur?.first_name ?? '',
+    last_name: utilisateur?.last_name ?? '',
+    telephone: utilisateur?.telephone ?? '',
+    niveau: utilisateur?.niveau ?? '',
+    num_matricule: utilisateur?.num_matricule ?? '',
+  }));
+  const [erreurs, setErreurs] = useState({});
+  const [erreurProfil, setErreurProfil] = useState('');
+  const [envoiProfil, setEnvoiProfil] = useState(false);
 
-const ROLE_LABELS = {
-  ETUDIANT: 'Étudiant',
-  ENSEIGNANT: 'Enseignant',
-  ADMIN: 'Administrateur',
-};
+  const [motsDePasse, setMotsDePasse] = useState({
+    current_password: '',
+    new_password: '',
+    confirm_password: '',
+  });
+  const [erreursMotDePasse, setErreursMotDePasse] = useState({});
+  const [erreurMotDePasse, setErreurMotDePasse] = useState('');
+  const [envoiMotDePasse, setEnvoiMotDePasse] = useState(false);
+  const [afficherMotsDePasse, setAfficherMotsDePasse] = useState(false);
 
-function ProfilPage() {
-  const { profil, role, deconnexion, fetchProfile } = useAuth();
-  const [mode, setMode] = useState('affichage'); // affichage | edition | mot-de-passe
-  const [envoi, setEnvoi] = useState(false);
-  const [succes, setSucces] = useState('');
-  const [erreur, setErreur] = useState('');
-  const [erreurChargement, setErreurChargement] = useState('');
-  const [chargement, setChargement] = useState(true);
+  usePageTitle('Mon profil');
 
-  // Formulaire (edit) — champs mappés sur User/Profile, sans surprise.
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
-  const [niveau, setNiveau] = useState('');
-  const [numMatricule, setNumMatricule] = useState('');
-  const [telephone, setTelephone] = useState('');
+  if (!utilisateur) return null;
 
-  // Changement de mot de passe.
-  const [ancien, setAncien] = useState('');
-  const [nouveau, setNouveau] = useState('');
-  const [confirmation, setConfirmation] = useState('');
-  const [erreursMdp, setErreursMdp] = useState({});
-
-  const initialiser = (donnees) => {
-    setUsername(donnees?.username || '');
-    setEmail(donnees?.email || '');
-    setNiveau(donnees?.niveau || '');
-    setNumMatricule(donnees?.num_matricule || donnees?.matricule || '');
-    setTelephone(donnees?.telephone || '');
+  const modifier = (champ) => (event) => {
+    setValeurs((actuelles) => ({ ...actuelles, [champ]: event.target.value }));
   };
 
-  useEffect(() => {
-    let actif = true;
-    (async () => {
-      try {
-        const donnees = await fetchProfile();
-        if (!actif) return;
-        if (donnees) initialiser(donnees);
-      } catch (err) {
-        if (!actif) return;
-        setErreurChargement(
-          messageDepuisErreur(err, 'Le profil n’est pas encore disponible côté serveur.'),
-        );
-      } finally {
-        if (actif) setChargement(false);
-      }
-    })();
-    return () => {
-      actif = false;
+  const modifierMotDePasse = (champ) => (event) => {
+    setMotsDePasse((actuels) => ({ ...actuels, [champ]: event.target.value }));
+  };
+
+  const enregistrerProfil = async (event) => {
+    event.preventDefault();
+    setErreurProfil('');
+    const validation = validerProfil(valeurs, role);
+    setErreurs(validation);
+    if (Object.keys(validation).length > 0) return;
+
+    const charge = {
+      username: valeurs.username.trim(),
+      email: valeurs.email.trim().toLowerCase(),
+      first_name: valeurs.first_name.trim(),
+      last_name: valeurs.last_name.trim(),
+      telephone: valeurs.telephone.trim(),
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (estEtudiant) {
+      charge.niveau = valeurs.niveau;
+      charge.num_matricule = valeurs.num_matricule.trim();
+    }
 
-  useEffect(() => {
-    if (profil) initialiser(profil);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profil]);
-
-  const estEtudiant = role === 'ETUDIANT';
-
-  const sauvegarder = async (e) => {
-    e.preventDefault();
-    setSucces('');
-    setErreur('');
-    setEnvoi(true);
+    setEnvoiProfil(true);
     try {
-      const payload = {
-        username,
-        email,
-        niveau: niveau || null,
-        num_matricule: numMatricule || null,
-        telephone: telephone || null,
-      };
-      const reponse = await apiClient.patch('/api/profile/', payload);
-      initialiser(reponse.data);
-      setSucces('Profil enregistré avec succès. Vos informations sont à jour.');
-      setMode('affichage');
-    } catch (err) {
-      setErreur(
-        messageDepuisErreur(err, 'Impossible d’enregistrer le profil. Vérifiez les informations puis réessayez.'),
+      const reponse = await authApi.updateMe(charge);
+      majUtilisateur(reponse.user);
+      setValeurs({
+        username: reponse.user.username ?? '',
+        email: reponse.user.email ?? '',
+        first_name: reponse.user.first_name ?? '',
+        last_name: reponse.user.last_name ?? '',
+        telephone: reponse.user.telephone ?? '',
+        niveau: reponse.user.niveau ?? '',
+        num_matricule: reponse.user.num_matricule ?? '',
+      });
+      setErreurs({});
+      succes('Votre profil a été mis à jour.');
+    } catch (probleme) {
+      setErreurs(champsDepuisErreur(probleme));
+      setErreurProfil(
+        messageDepuisErreur(
+          probleme,
+          'Impossible d’enregistrer votre profil. Vérifiez les informations saisies.',
+        ),
       );
     } finally {
-      setEnvoi(false);
+      setEnvoiProfil(false);
     }
   };
 
-  const changerMotDePasse = async (e) => {
-    e.preventDefault();
-    setSucces('');
-    setErreur('');
-    const erreurs = {};
-    if (!ancien) erreurs.ancien = 'Saisissez votre mot de passe actuel.';
-    if (nouveau.length < 8) erreurs.nouveau = 'Le nouveau mot de passe doit comporter au moins 8 caractères.';
-    if (nouveau !== confirmation) erreurs.confirmation = 'La confirmation ne correspond pas au nouveau mot de passe.';
-    setErreursMdp(erreurs);
-    if (Object.keys(erreurs).length > 0) return;
+  const changerMotDePasse = async (event) => {
+    event.preventDefault();
+    setErreurMotDePasse('');
+    const validation = validerMotDePasse(motsDePasse);
+    setErreursMotDePasse(validation);
+    if (Object.keys(validation).length > 0) return;
 
-    setEnvoi(true);
+    setEnvoiMotDePasse(true);
     try {
-      const payload = { current_password: ancien, new_password: nouveau, confirm_password: confirmation };
-      try {
-        await apiClient.post('/api/profile/change-password/', payload);
-      } catch (errPremier) {
-        // Convention alternative (certains backends attendent PUT) : ne retente
-        // que si la première méthode a été refusée par le serveur.
-        if (errPremier?.response?.status !== 405) throw errPremier;
-        await apiClient.put('/api/profile/change-password/', payload);
-      }
-      setAncien('');
-      setNouveau('');
-      setConfirmation('');
-      setSucces('Mot de passe modifié avec succès. Utilisez-le lors de votre prochaine connexion.');
-      setMode('affichage');
-    } catch (err) {
-      setErreur(
-        messageDepuisErreur(err, 'Impossible de modifier le mot de passe. Vérifiez le mot actuel puis réessayez.'),
+      await authApi.changePassword(motsDePasse);
+      setMotsDePasse({
+        current_password: '',
+        new_password: '',
+        confirm_password: '',
+      });
+      setErreursMotDePasse({});
+      succes('Votre mot de passe a été modifié.');
+    } catch (probleme) {
+      setErreursMotDePasse(champsDepuisErreur(probleme));
+      setErreurMotDePasse(
+        messageDepuisErreur(
+          probleme,
+          'Impossible de modifier le mot de passe. Vérifiez votre mot de passe actuel.',
+        ),
       );
     } finally {
-      setEnvoi(false);
+      setEnvoiMotDePasse(false);
     }
   };
-
-  const details = [
-    { icon: Mail, label: 'Email', valeur: email || 'Non renseigné' },
-    ...(estEtudiant || numMatricule
-      ? [{ icon: Hash, label: 'Numéro matricule', valeur: numMatricule || 'Non renseigné' }]
-      : []),
-    ...(estEtudiant
-      ? [{ icon: Award, label: 'Niveau', valeur: niveau ? (NIVEAU_OPTIONS.find((o) => o.value === niveau)?.label || niveau) : 'Non renseigné' }]
-      : []),
-    { icon: Shield, label: 'Rôle', valeur: ROLE_LABELS[role] || 'Utilisateur' },
-    ...(telephone
-      ? [{ icon: User, label: 'Téléphone', valeur: telephone }]
-      : []),
-  ];
 
   return (
-    <AppLayout currentPage="profil">
-      <div className="mx-auto w-full max-w-3xl space-y-6 p-4 sm:p-6 lg:p-8" aria-labelledby="profil-titre">
-        <div className="space-y-1">
-          <h1 id="profil-titre" className="text-2xl font-bold tracking-tight text-slate-900">Mon profil</h1>
-          <p className="max-w-prose65 text-base text-slate-600">
-            Vos informations personnelles pour Présence QR, lisibles et modifiables en quelques touches.
-          </p>
-        </div>
+    <Page>
+      <PageHeader
+        titre="Mon profil"
+        description="Mettez à jour vos informations personnelles et votre mot de passe."
+        icone={UserRound}
+      />
 
-        {succes && (
-          <Alert variant="success" title="Enregistré">
-            {succes}
-          </Alert>
-        )}
-        {erreur && (
-          <Alert variant="danger" title="Action impossible">
-            {erreur}
-          </Alert>
-        )}
+      <Card>
+        <CardBody className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+          <div className="flex items-center gap-4">
+            <span
+              aria-hidden="true"
+              className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xl font-bold text-brand-800"
+            >
+              {initiales(utilisateur.nom_complet || utilisateur.username)}
+            </span>
+            <div className="min-w-0">
+              <p className="text-xl font-bold text-slate-900">
+                {utilisateur.nom_complet || utilisateur.username}
+              </p>
+              <p className="text-sm text-slate-600">{utilisateur.email}</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="info">{LIBELLES_ROLE[role] ?? role}</Badge>
+            {estEtudiant && utilisateur.niveau_libelle && (
+              <Badge variant="neutral">{utilisateur.niveau_libelle}</Badge>
+            )}
+          </div>
+        </CardBody>
+      </Card>
 
-        {chargement ? (
-          <Spinner label="Chargement du profil…" />
-        ) : erreurChargement ? (
-          <EmptyState
-            icon={User}
-            title="Profil indisponible pour le moment"
-            description={erreurChargement}
-            action={
-              <Button variant="secondary" size="md" onClick={() => window.location.reload()}>
-                Réessayer
-              </Button>
-            }
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader
+            title="Informations personnelles"
+            description="Votre adresse email sert d’identifiant de connexion."
           />
-        ) : mode === 'edition' ? (
-          <form onSubmit={sauvegarder} className="space-y-4" aria-label="Modifier mon profil">
-            <Card className="space-y-4 p-5 sm:p-6">
-              <h2 className="text-lg font-semibold text-slate-900">Modifier mon profil</h2>
-              <Input
-                id="profil-username"
-                label="Nom d’utilisateur"
-                autoComplete="username"
-                required
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                leadingIcon={User}
-              />
+          <CardBody>
+            <form onSubmit={enregistrerProfil} className="space-y-4" noValidate>
+              {erreurProfil && (
+                <p
+                  role="alert"
+                  className="rounded-app bg-danger-50 px-3 py-2 text-sm font-medium text-danger-800"
+                >
+                  {erreurProfil}
+                </p>
+              )}
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Input
+                  id="profil-prenom"
+                  label="Prénom"
+                  autoComplete="given-name"
+                  value={valeurs.first_name}
+                  onChange={modifier('first_name')}
+                  error={erreurs.first_name}
+                  disabled={envoiProfil}
+                  leadingIcon={UserRound}
+                />
+                <Input
+                  id="profil-nom"
+                  label="Nom"
+                  autoComplete="family-name"
+                  value={valeurs.last_name}
+                  onChange={modifier('last_name')}
+                  error={erreurs.last_name}
+                  disabled={envoiProfil}
+                />
+              </div>
+
               <Input
                 id="profil-email"
                 label="Adresse email"
                 type="email"
                 autoComplete="email"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={valeurs.email}
+                onChange={modifier('email')}
+                error={erreurs.email}
+                disabled={envoiProfil}
                 leadingIcon={Mail}
               />
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Select
-                  id="profil-niveau"
-                  label="Niveau"
-                  value={niveau}
-                  onChange={(e) => setNiveau(e.target.value)}
-                >
-                  {NIVEAU_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </Select>
-                <Input
-                  id="profil-matricule"
-                  label="Numéro matricule"
-                  value={numMatricule}
-                  onChange={(e) => setNumMatricule(e.target.value)}
-                  leadingIcon={Hash}
-                />
-              </div>
+
+              <Input
+                id="profil-identifiant"
+                label="Identifiant de connexion"
+                required
+                value={valeurs.username}
+                onChange={modifier('username')}
+                error={erreurs.username}
+                hint="Utilisez une adresse email ou un identifiant court, sans espace."
+                disabled={envoiProfil}
+                autoComplete="username"
+              />
+
               <Input
                 id="profil-telephone"
                 label="Téléphone (optionnel)"
                 type="tel"
                 autoComplete="tel"
-                value={telephone}
-                onChange={(e) => setTelephone(e.target.value)}
+                value={valeurs.telephone}
+                onChange={modifier('telephone')}
+                error={erreurs.telephone}
+                disabled={envoiProfil}
+                leadingIcon={Phone}
               />
-            </Card>
-            <div className="flex flex-wrap items-center gap-3">
-              <Button type="submit" variant="primary" size="md" loading={envoi}>
-                Enregistrer
-              </Button>
-              <Button type="button" variant="secondary" size="md" onClick={() => setMode('affichage')} disabled={envoi}>
-                Annuler
-              </Button>
-            </div>
-          </form>
-        ) : mode === 'mot-de-passe' ? (
-          <form onSubmit={changerMotDePasse} className="space-y-4" aria-label="Changer de mot de passe">
-            <Card className="space-y-4 p-5 sm:p-6">
-              <h2 className="text-lg font-semibold text-slate-900">Changer de mot de passe</h2>
-              <Input
-                id="profil-ancien"
-                label="Mot de passe actuel"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={ancien}
-                onChange={(e) => setAncien(e.target.value)}
-                leadingIcon={Key}
-                error={erreursMdp.ancien}
-              />
-              <Input
-                id="profil-nouveau"
-                label="Nouveau mot de passe"
-                type="password"
-                autoComplete="new-password"
-                required
-                hint="Au moins 8 caractères."
-                value={nouveau}
-                onChange={(e) => setNouveau(e.target.value)}
-                leadingIcon={Key}
-                error={erreursMdp.nouveau}
-              />
-              <Input
-                id="profil-confirmation"
-                label="Confirmer le nouveau mot de passe"
-                type="password"
-                autoComplete="new-password"
-                required
-                value={confirmation}
-                onChange={(e) => setConfirmation(e.target.value)}
-                leadingIcon={Key}
-                error={erreursMdp.confirmation}
-              />
-            </Card>
-            <div className="flex flex-wrap items-center gap-3">
-              <Button type="submit" variant="primary" size="md" loading={envoi}>
-                Mettre à jour
-              </Button>
-              <Button type="button" variant="secondary" size="md" onClick={() => setMode('affichage')} disabled={envoi}>
-                Annuler
-              </Button>
-            </div>
-          </form>
-        ) : (
-          <>
-            {/* Carte d'identité — aucune donnée factice : si le profil serveur
-                est absent, on affiche seulement le rôle connu côté client. */}
-            <Card className="flex flex-wrap items-center gap-4 p-5 sm:p-6">
-              <span
-                aria-hidden="true"
-                className="flex h-16 w-16 shrink-0 items-center justify-center rounded-app bg-brand-50 text-brand-700"
-              >
-                <User className="h-8 w-8" strokeWidth={1.75} />
-              </span>
-              <div className="min-w-0 space-y-1">
-                <h2 className="truncate text-xl font-bold text-slate-900">
-                  {username || email || 'Mon compte'}
-                </h2>
-                <p className="text-base text-slate-600">
-                  {ROLE_LABELS[role] || 'Utilisateur'} — Présence QR
+
+              {estEtudiant && (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <Select
+                    id="profil-niveau"
+                    label="Niveau"
+                    required
+                    value={valeurs.niveau}
+                    onChange={modifier('niveau')}
+                    error={erreurs.niveau}
+                    disabled={envoiProfil}
+                  >
+                    <option value="">Choisir un niveau</option>
+                    {NIVEAUX.map((niveau) => (
+                      <option key={niveau.value} value={niveau.value}>
+                        {niveau.label}
+                      </option>
+                    ))}
+                  </Select>
+                  <Input
+                    id="profil-matricule"
+                    label="Numéro de matricule"
+                    required
+                    value={valeurs.num_matricule}
+                    onChange={modifier('num_matricule')}
+                    error={erreurs.num_matricule}
+                    disabled={envoiProfil}
+                    leadingIcon={Hash}
+                  />
+                </div>
+              )}
+
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4">
+                <p className="flex items-center gap-2 text-sm text-slate-600">
+                  <CalendarDays aria-hidden="true" className="h-4 w-4" />
+                  Compte créé le {formatDate(utilisateur.date_joined)}
                 </p>
+                <Button type="submit" variant="primary" loading={envoiProfil}>
+                  <Save aria-hidden="true" className="h-5 w-5" />
+                  Enregistrer
+                </Button>
               </div>
-            </Card>
+            </form>
+          </CardBody>
+        </Card>
 
-            <section aria-labelledby="profil-informations" className="space-y-3">
-              <h2 id="profil-informations" className="text-xl font-bold text-slate-900">
-                Mes informations
-              </h2>
-              <Card className="divide-y divide-slate-100 p-0">
-                {details.map(({ icon: Icone, label, valeur }) => (
-                  <div key={label} className="flex items-center justify-between gap-4 p-4">
-                    <span className="flex min-w-0 items-center gap-3 text-slate-600">
-                      <Icone aria-hidden="true" className="h-5 w-5 shrink-0" />
-                      <span className="text-base">{label}</span>
-                    </span>
-                    <span className="truncate text-right text-base font-medium text-slate-900">{valeur}</span>
-                  </div>
-                ))}
-              </Card>
-            </section>
+        <div className="space-y-6">
+          <Card>
+            <CardHeader
+              title="Mot de passe"
+              description="Choisissez un mot de passe d’au moins 8 caractères, différent de l’ancien."
+            />
+            <CardBody>
+              <form onSubmit={changerMotDePasse} className="space-y-4" noValidate>
+                {erreurMotDePasse && (
+                  <p
+                    role="alert"
+                    className="rounded-app bg-danger-50 px-3 py-2 text-sm font-medium text-danger-800"
+                  >
+                    {erreurMotDePasse}
+                  </p>
+                )}
 
-            <section aria-labelledby="profil-parametres" className="space-y-3">
-              <h2 id="profil-parametres" className="text-xl font-bold text-slate-900">
-                Paramètres
-              </h2>
-              <Card className="divide-y divide-slate-100 p-0">
-                <button
-                  type="button"
-                  onClick={() => { setSucces(''); setErreur(''); setMode('edition'); }}
-                  className="flex min-h-[44px] w-full items-center justify-between gap-3 p-4 text-left transition-colors hover:bg-slate-50"
-                >
-                  <span className="flex items-center gap-3 text-slate-700">
-                    <Pencil aria-hidden="true" className="h-5 w-5 shrink-0 text-slate-500" />
-                    <span className="text-base font-medium">Modifier mon profil</span>
-                  </span>
-                  <ChevronRight aria-hidden="true" className="h-5 w-5 text-slate-400" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setSucces(''); setErreur(''); setMode('mot-de-passe'); }}
-                  className="flex min-h-[44px] w-full items-center justify-between gap-3 p-4 text-left transition-colors hover:bg-slate-50"
-                >
-                  <span className="flex items-center gap-3 text-slate-700">
-                    <Key aria-hidden="true" className="h-5 w-5 shrink-0 text-slate-500" />
-                    <span className="text-base font-medium">Changer de mot de passe</span>
-                  </span>
-                  <ChevronRight aria-hidden="true" className="h-5 w-5 text-slate-400" />
-                </button>
-              </Card>
-            </section>
+                <Input
+                  id="profil-mot-de-passe-actuel"
+                  label="Mot de passe actuel"
+                  type={afficherMotsDePasse ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  required
+                  value={motsDePasse.current_password}
+                  onChange={modifierMotDePasse('current_password')}
+                  error={erreursMotDePasse.current_password}
+                  disabled={envoiMotDePasse}
+                  leadingIcon={Lock}
+                />
 
-            <Button
-              type="button"
-              variant="secondary"
-              size="md"
-              onClick={deconnexion}
-              className="w-full text-danger-700 hover:bg-danger-50 sm:w-auto"
-            >
-              <LogOut aria-hidden="true" className="h-5 w-5" />
-              <span>Déconnexion</span>
-            </Button>
-          </>
-        )}
+                <Input
+                  id="profil-nouveau-mot-de-passe"
+                  label="Nouveau mot de passe"
+                  type={afficherMotsDePasse ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  required
+                  value={motsDePasse.new_password}
+                  onChange={modifierMotDePasse('new_password')}
+                  error={erreursMotDePasse.new_password}
+                  disabled={envoiMotDePasse}
+                  leadingIcon={KeyRound}
+                  trailing={
+                    <button
+                      type="button"
+                      onClick={() => setAfficherMotsDePasse((valeur) => !valeur)}
+                      aria-label={
+                        afficherMotsDePasse
+                          ? 'Masquer les mots de passe'
+                          : 'Afficher les mots de passe'
+                      }
+                      aria-pressed={afficherMotsDePasse}
+                      className="flex h-10 w-10 items-center justify-center rounded-app text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                    >
+                      {afficherMotsDePasse ? (
+                        <EyeOff aria-hidden="true" className="h-5 w-5" />
+                      ) : (
+                        <Eye aria-hidden="true" className="h-5 w-5" />
+                      )}
+                    </button>
+                  }
+                />
+
+                <Input
+                  id="profil-confirmation-mot-de-passe"
+                  label="Confirmer le nouveau mot de passe"
+                  type={afficherMotsDePasse ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  required
+                  value={motsDePasse.confirm_password}
+                  onChange={modifierMotDePasse('confirm_password')}
+                  error={erreursMotDePasse.confirm_password}
+                  disabled={envoiMotDePasse}
+                  leadingIcon={Lock}
+                />
+
+                <Button type="submit" variant="primary" loading={envoiMotDePasse}>
+                  <ShieldCheck aria-hidden="true" className="h-5 w-5" />
+                  Modifier le mot de passe
+                </Button>
+              </form>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardBody className="space-y-2 text-sm text-slate-700">
+              <p className="flex items-center gap-2 font-semibold text-slate-900">
+                <GraduationCap aria-hidden="true" className="h-5 w-5 text-brand-700" />
+                Votre compte
+              </p>
+              <p>
+                Rôle : <strong>{LIBELLES_ROLE[role] ?? role}</strong>. Ce rôle est
+                attribué par l’administration et ne peut pas être modifié depuis cette
+                page.
+              </p>
+              <p>
+                Si vous devez changer de cours ou de niveau d’accès, contactez votre
+                enseignant ou l’administration.
+              </p>
+            </CardBody>
+          </Card>
+        </div>
       </div>
-    </AppLayout>
+    </Page>
   );
 }
 
-export default ProfilPage;
+export default Profil;

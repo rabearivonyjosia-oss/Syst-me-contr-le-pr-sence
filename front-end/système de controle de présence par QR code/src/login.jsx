@@ -1,98 +1,132 @@
-import { useState } from "react";
-import { Mail, Lock, Eye, EyeOff } from "lucide-react";
-import AuthLayout from "./components/layout/AuthLayout.jsx";
-import { Alert, Button, Input } from "./components/ui/index.js";
-import { useAuth } from "./context/AuthContext.jsx";
+import { useState } from 'react';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { ArrowRight, Eye, EyeOff, Lock, Mail } from 'lucide-react';
+import AuthLayout from './components/layout/AuthLayout.jsx';
+import { Alert, Button, Input } from './components/ui/index.js';
+import { useAuth } from './context/AuthContext.jsx';
+import { useToast } from './context/ToastContext.jsx';
+import { usePageTitle } from './hooks/usePageTitle.js';
+import { emailValide } from './utils/validation.js';
+import { messageDepuisErreur } from './services/api.js';
 
-function Login({ goToRegister, goToDashboard }) {
-  const { connexion: enregistrerSession } = useAuth();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
-  const [isloading, setIsLoading] = useState(false);
+function Login() {
+  const { connexion, estConnecte, erreurSession } = useAuth();
+  const { succes } = useToast();
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  const connexion = async (e) => {
-    e.preventDefault();
-    setErrorMsg("");
-    setIsLoading(true);
+  const [email, setEmail] = useState(location.state?.email ?? '');
+  const [motDePasse, setMotDePasse] = useState('');
+  const [afficherMotDePasse, setAfficherMotDePasse] = useState(false);
+  const [erreurs, setErreurs] = useState({});
+  const [erreur, setErreur] = useState('');
+  const [envoi, setEnvoi] = useState(false);
 
+  usePageTitle('Connexion');
+
+  const destination = location.state?.from || '/accueil';
+  const messageInscription = location.state?.message || '';
+
+  if (estConnecte) {
+    return <Navigate to={destination} replace />;
+  }
+
+  const soumettre = async (event) => {
+    event.preventDefault();
+    setErreur('');
+    const prochaines = {};
+    if (!emailValide(email)) {
+      prochaines.email = 'Saisissez une adresse email valide.';
+    }
+    if (!motDePasse) {
+      prochaines.motDePasse = 'Saisissez votre mot de passe.';
+    }
+    setErreurs(prochaines);
+    if (Object.keys(prochaines).length > 0) return;
+
+    setEnvoi(true);
     try {
-      const response = await fetch(`${import.meta.env?.VITE_API_URL || "http://127.0.0.1:8000"}/login/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: email,
-          password: password,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        enregistrerSession(data);
-        goToDashboard();
-      } else {
-        setErrorMsg(data.detail || "Adresse email ou mot de passe incorrect.");
-      }
-    } catch (error) {
-      console.log(error);
-      setErrorMsg("Impossible de contacter le serveur. Vérifiez votre connexion puis réessayez.");
+      const profil = await connexion(email.trim().toLowerCase(), motDePasse);
+      succes(`Bienvenue ${profil?.first_name || profil?.nom_complet || ''}.`.trim());
+      navigate(destination, { replace: true });
+    } catch (probleme) {
+      setErreur(
+        messageDepuisErreur(
+          probleme,
+          'Connexion impossible. Vérifiez votre email et votre mot de passe.',
+        ),
+      );
     } finally {
-      setIsLoading(false);
+      setEnvoi(false);
     }
   };
 
   return (
     <AuthLayout>
       <div className="space-y-6">
-        <div className="space-y-1.5">
-          <h2 className="text-2xl font-bold tracking-tight text-slate-900">
-            Connexion
-          </h2>
-          <p className="text-base text-slate-600">
-            Connectez-vous à votre compte pour accéder à votre espace.
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Connexion</h1>
+          <p className="max-w-prose65 text-base text-slate-600">
+            Accédez à vos cours, séances et feuilles de présence.
           </p>
         </div>
 
-        <form onSubmit={connexion} className="space-y-5">
+        {messageInscription && (
+          <Alert variant="success" title="Compte créé">
+            {messageInscription}
+          </Alert>
+        )}
+
+        {erreurSession && !messageInscription && (
+          <Alert variant="warning" title="Session">
+            {erreurSession}
+          </Alert>
+        )}
+
+        {erreur && (
+          <Alert variant="danger" title="Connexion refusée">
+            {erreur}
+          </Alert>
+        )}
+
+        <form onSubmit={soumettre} className="space-y-4" noValidate>
           <Input
-            id="email"
+            id="connexion-email"
             label="Adresse email"
             type="email"
-            name="email"
             autoComplete="email"
             required
-            placeholder="exemple@universite.sn"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(event) => setEmail(event.target.value)}
             leadingIcon={Mail}
+            error={erreurs.email}
+            disabled={envoi}
           />
 
           <Input
-            id="password"
+            id="connexion-mot-de-passe"
             label="Mot de passe"
-            type={showPassword ? "text" : "password"}
-            name="password"
+            type={afficherMotDePasse ? 'text' : 'password'}
             autoComplete="current-password"
             required
-            placeholder="Votre mot de passe"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            value={motDePasse}
+            onChange={(event) => setMotDePasse(event.target.value)}
             leadingIcon={Lock}
+            error={erreurs.motDePasse}
+            disabled={envoi}
             trailing={
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
-                aria-pressed={showPassword}
-                title={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
-                className="flex h-11 w-11 items-center justify-center rounded-app text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
+                onClick={() => setAfficherMotDePasse((valeur) => !valeur)}
+                aria-label={
+                  afficherMotDePasse
+                    ? 'Masquer le mot de passe'
+                    : 'Afficher le mot de passe'
+                }
+                aria-pressed={afficherMotDePasse}
+                className="flex h-10 w-10 items-center justify-center rounded-app text-slate-500 hover:bg-slate-100 hover:text-slate-800"
               >
-                {showPassword ? (
+                {afficherMotDePasse ? (
                   <EyeOff aria-hidden="true" className="h-5 w-5" />
                 ) : (
                   <Eye aria-hidden="true" className="h-5 w-5" />
@@ -101,40 +135,17 @@ function Login({ goToRegister, goToDashboard }) {
             }
           />
 
-          <div className="flex items-center justify-between">
-            <label htmlFor="remember" className="flex min-h-[44px] cursor-pointer items-center gap-2 text-base text-slate-700">
-              <input
-                id="remember"
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                className="h-5 w-5 rounded border-slate-300 text-brand-700 focus:ring-brand-600"
-              />
-              <span>Se souvenir de moi</span>
-            </label>
-          </div>
-
-          {errorMsg && <Alert variant="danger" title="Connexion impossible">{errorMsg}</Alert>}
-
-          <Button
-            type="submit"
-            size="lg"
-            className="w-full"
-            loading={isloading}
-          >
-            {isloading ? "Connexion en cours…" : "Se connecter"}
+          <Button type="submit" variant="primary" size="lg" className="w-full" loading={envoi}>
+            Se connecter
+            <ArrowRight aria-hidden="true" className="h-5 w-5" />
           </Button>
         </form>
 
-        <p className="text-center text-base text-slate-600">
-          Pas encore de compte ?{" "}
-          <button
-            type="button"
-            onClick={goToRegister}
-            className="font-semibold text-brand-700 underline underline-offset-2 transition-colors hover:text-brand-800"
-          >
-            S'inscrire
-          </button>
+        <p className="border-t border-slate-200 pt-4 text-center text-base text-slate-600">
+          Pas encore de compte ?{' '}
+          <Link to="/inscription" className="font-semibold text-brand-700">
+            Créer un compte étudiant
+          </Link>
         </p>
       </div>
     </AuthLayout>

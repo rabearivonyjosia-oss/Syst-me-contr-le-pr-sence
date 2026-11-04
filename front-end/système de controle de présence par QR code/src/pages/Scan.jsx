@@ -1,256 +1,478 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
-  AlertCircle,
   Camera,
   CameraOff,
   CheckCircle2,
+  Info,
   Keyboard,
-  Loader2,
   QrCode,
   RotateCcw,
+  ShieldAlert,
 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
-import AppLayout from '../components/layout/AppLayout.jsx';
-import { Alert, Button, Card, Input } from '../components/ui/index.js';
-import apiClient, { messageDepuisErreur } from '../services/api.js';
+import Page from '../components/layout/Page.jsx';
+import {
+  Alert,
+  Button,
+  Card,
+  CardBody,
+  CardHeader,
+  Input,
+  PageHeader,
+} from '../components/ui/index.js';
+import { usePageTitle } from '../hooks/usePageTitle.js';
+import {
+  codeDepuisErreur,
+  messageDepuisErreur,
+  presencesApi,
+} from '../services/api.js';
+import { formatDateLongue, formatPlage } from '../utils/format.js';
 
-/*
- * Page « Scanner une présence » (Phase 3 — écran pilote).
- * Règles IHM : mobile-first, boutons ≥ 44×44 px, une seule action principale
- * visible à la fois, retour immédiat et explicite (vert + icône + texte, ou
- * cause précise en rouge), thème clair, texte sombre sur fond clair.
- * Backend inchangé : l'endpoint cible est POST /presences/scan/ avec { token } ;
- * tant qu'il ne répond pas, les erreurs serveur sont relayées telles quelles.
- * Caméra : html5-qrcode (getUserMedia). En HTTP non-localhost la caméra est
- * bloquée par le navigateur — d'où la saisie manuelle systématique de repli.
- */
+const ID_LECTEUR = 'lecteur-qr-presence';
 
-const TYPES_ERREUR = {
-  invalide: 'QR invalide : ce code ne correspond à aucune séance.',
-  expire: 'QR expiré : le code n’est plus valable. Demandez à l’enseignant d’en générer un nouveau.',
-  nonInscrit: 'Vous n’êtes pas inscrit à ce cours.',
-  dejaEnregistre: 'Présence déjà enregistrée pour cette séance.',
-  nonCommencee: 'La séance n’a pas encore commencé.',
-  terminee: 'La séance est terminée.',
+const TITRES_ERREUR = {
+  qr_invalide: 'QR code invalide',
+  qr_expire: 'QR code expiré',
+  seance_non_ouverte: 'Séance pas encore ouverte',
+  seance_terminee: 'Séance terminée',
+  non_inscrit: 'Vous n’êtes pas inscrit à ce cours',
+  etudiant_non_inscrit: 'Étudiant non inscrit',
+  validation: 'Code incomplet',
 };
 
-function ScanPage() {
-  const lecteurRef = useRef(null);
-  const scannerRef = useRef(null);
-  const actifRef = useRef(false);
+function messageCamera(probleme) {
+  const nom = probleme?.name || '';
+  if (nom === 'NotAllowedError' || nom === 'PermissionDeniedError') {
+    return 'L’accès à la caméra a été refusé. Autorisez la caméra dans les réglages du navigateur, puis réessayez. Vous pouvez aussi saisir le code manuellement.';
+  }
+  if (nom === 'NotFoundError' || nom === 'DevicesNotFoundError') {
+    return 'Aucune caméra n’a été détectée sur cet appareil. Utilisez la saisie manuelle du code.';
+  }
+  if (nom === 'NotReadableError' || nom === 'TrackStartError') {
+    return 'La caméra est déjà utilisée par une autre application. Fermez-la puis réessayez, ou saisissez le code manuellement.';
+  }
+  if (nom === 'OverconstrainedError') {
+    return 'La caméra arrière n’est pas disponible sur cet appareil. Utilisez la saisie manuelle du code.';
+  }
+  return 'Impossible de démarrer la caméra. Vérifiez les autorisations du navigateur ou utilisez la saisie manuelle.';
+}
 
-  const [cameraEnCours, setCameraEnCours] = useState(false);
+function Scan() {
+  const cameraDisponible =
+    typeof window !== 'undefined' &&
+    window.isSecureContext &&
+    Boolean(navigator.mediaDevices?.getUserMedia);
+
+  const [mode, setMode] = useState(() => (cameraDisponible ? 'camera' : 'manuel'));
+  const [cameraActive, setCameraActive] = useState(false);
+  const [demarrageCamera, setDemarrageCamera] = useState(false);
   const [erreurCamera, setErreurCamera] = useState('');
   const [codeManuel, setCodeManuel] = useState('');
+  const [erreurCode, setErreurCode] = useState('');
+  const [resultat, setResultat] = useState(null);
   const [envoi, setEnvoi] = useState(false);
-  const [succes, setSucces] = useState('');
-  const [erreur, setErreur] = useState('');
-  const [dernierCode, setDernierCode] = useState('');
+
+  const scannerRef = useRef(null);
+  const envoiEnCours = useRef(false);
+
+  usePageTitle('Scanner une présence');
 
   const arreterCamera = useCallback(async () => {
-    const lecteur = scannerRef.current;
-    if (!lecteur || !actifRef.current) return;
+    const scanner = scannerRef.current;
+    scannerRef.current = null;
+    if (!scanner) {
+      setCameraActive(false);
+      return;
+    }
     try {
-      const etat = lecteur.getState?.();
-      // Html5QrcodeState.SCANNING = 2, PAUSED = 3
-      if (etat === 2 || etat === 3) await lecteur.stop();
-      lecteur.clear?.();
+      await scanner.stop();
     } catch {
-      // Déjà arrêté ou non démarré : on nettoie simplement.
-      try { lecteur.clear?.(); } catch { /* ignore */ }
+      // La caméra peut déjà être arrêtée (changement d'onglet, erreur système).
+    }
+    try {
+      scanner.clear();
+    } catch {
+      // Le conteneur a pu être démonté : rien d'autre à nettoyer.
+    }
+    setCameraActive(false);
+  }, []);
+
+  const soumettreCode = useCallback(async (valeur) => {
+    const code = String(valeur || '').trim();
+    if (!code) {
+      setErreurCode('Saisissez ou scannez le code de la séance.');
+      return;
+    }
+    if (envoiEnCours.current) return;
+
+    envoiEnCours.current = true;
+    setEnvoi(true);
+    setErreurCode('');
+    setResultat(null);
+    try {
+      const donnees = await presencesApi.scan(code);
+      setResultat({
+        type: 'succes',
+        titre: 'Présence enregistrée',
+        message: donnees.detail,
+        seance: donnees.seance,
+      });
+      setCodeManuel('');
+    } catch (probleme) {
+      const codeErreur = codeDepuisErreur(probleme);
+      const message = messageDepuisErreur(
+        probleme,
+        'Le scan n’a pas abouti. Vérifiez le code et réessayez.',
+      );
+      if (codeErreur === 'deja_present') {
+        setResultat({
+          type: 'information',
+          titre: 'Présence déjà enregistrée',
+          message,
+        });
+      } else {
+        setResultat({
+          type: 'erreur',
+          titre: TITRES_ERREUR[codeErreur] || 'Scan impossible',
+          message,
+        });
+      }
     } finally {
-      actifRef.current = false;
-      scannerRef.current = null;
-      setCameraEnCours(false);
+      envoiEnCours.current = false;
+      setEnvoi(false);
     }
   }, []);
 
-  useEffect(() => () => {
-    arreterCamera();
-  }, [arreterCamera]);
-
-  const classerErreur = (message) => {
-    const m = String(message || '').toLowerCase();
-    if (m.includes('expir')) return TYPES_ERREUR.expire;
-    if (m.includes('invalide') || m.includes('invalid') || m.includes('introuvable')) return TYPES_ERREUR.invalide;
-    if (m.includes('inscrit') || m.includes('not enrolled')) return TYPES_ERREUR.nonInscrit;
-    if (m.includes('déjà') || m.includes('deja') || m.includes('already')) return TYPES_ERREUR.dejaEnregistre;
-    if (m.includes('commenc')) return TYPES_ERREUR.nonCommencee;
-    if (m.includes('termin') || m.includes('ended') || m.includes('closed')) return TYPES_ERREUR.terminee;
-    return message || TYPES_ERREUR.invalide;
-  };
-
-  const envoyerPresence = useCallback(async (token) => {
-    const valeur = String(token || '').trim();
-    setSucces('');
-    setErreur('');
-    if (!valeur) {
-      setErreur('Saisissez ou scannez le code QR de la séance pour enregistrer votre présence.');
-      return;
-    }
-    setEnvoi(true);
-    setDernierCode(valeur);
-    try {
-      // Endpoint cible (backend Phase 1) : POST /presences/scan/ { token }.
-      // Repli : mêmes validations côté UI, relais du message serveur tel quel.
-      await apiClient.post('/presences/scan/', { token: valeur });
-      await arreterCamera();
-      setCodeManuel('');
-      setSucces('Présence enregistrée avec succès. Merci d’être à l’heure !');
-    } catch (err) {
-      const brut = messageDepuisErreur(err, 'Échec du marquage de présence.');
-      setErreur(classerErreur(brut));
-    } finally {
-      setEnvoi(false);
-    }
-  }, [arreterCamera]);
+  const traiterScan = useCallback(
+    (texte) => {
+      if (envoiEnCours.current) return;
+      arreterCamera();
+      soumettreCode(texte);
+    },
+    [arreterCamera, soumettreCode],
+  );
 
   const demarrerCamera = useCallback(async () => {
-    setErreurCamera('');
-    setSucces('');
-    setErreur('');
-    if (!lecteurRef.current) {
-      setErreurCamera('Le lecteur caméra n’est pas prêt. Utilisez la saisie manuelle ci-dessous.');
+    if (!window.isSecureContext) {
+      setErreurCamera(
+        'La caméra n’est accessible qu’en HTTPS ou sur localhost. Utilisez la saisie manuelle du code.',
+      );
+      setMode('manuel');
       return;
     }
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setErreurCamera(
+        'Ce navigateur ne prend pas en charge l’accès à la caméra. Utilisez la saisie manuelle du code.',
+      );
+      setMode('manuel');
+      return;
+    }
+
+    setErreurCamera('');
+    setDemarrageCamera(true);
     try {
-      const lecteur = new Html5Qrcode(lecteurRef.current.id);
-      scannerRef.current = lecteur;
-      setCameraEnCours(true);
-      await lecteur.start(
+      const scanner = new Html5Qrcode(ID_LECTEUR, { verbose: false });
+      scannerRef.current = scanner;
+      await scanner.start(
         { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1 },
-        async (texteLu) => {
-          if (actifRef.current) return;
-          actifRef.current = true;
-          await envoyerPresence(texteLu);
-        },
+        { fps: 10, qrbox: { width: 240, height: 240 } },
+        (texte) => traiterScan(texte),
         () => {
-          // Erreurs de détection intermédiaires : on ignore, le scan continue.
+          // Les images sans QR code sont ignorées : aucune erreur à afficher.
         },
       );
-    } catch (err) {
+      setCameraActive(true);
+    } catch (probleme) {
+      setErreurCamera(messageCamera(probleme));
+      const scanner = scannerRef.current;
       scannerRef.current = null;
-      setCameraEnCours(false);
-      const m = String(err?.message || err || '').toLowerCase();
-      if (m.includes('permission') || m.includes('notallowed') || m.includes('denied')) {
-        setErreurCamera('Accès à la caméra refusé. Autorisez la caméra dans les réglages du navigateur, ou saisissez le code manuellement.');
-      } else if (m.includes('not found') || m.includes('devices')) {
-        setErreurCamera('Aucune caméra trouvée sur cet appareil. Utilisez la saisie manuelle ci-dessous.');
-      } else if (m.includes('https') || m.includes('secure') || m.includes('insecure')) {
-        setErreurCamera('La caméra nécessite une connexion sécurisée (HTTPS) ou localhost. Sur téléphone, utilisez un tunnel HTTPS ou saisissez le code manuellement.');
-      } else {
-        setErreurCamera('La caméra n’a pas pu démarrer. Utilisez la saisie manuelle ci-dessous.');
+      if (scanner) {
+        try {
+          scanner.clear();
+        } catch {
+          // Le lecteur n'a jamais démarré : aucun conteneur à vider.
+        }
       }
+      setCameraActive(false);
+    } finally {
+      setDemarrageCamera(false);
     }
-  }, [envoyerPresence]);
+  }, [traiterScan]);
 
-  const reessayer = useCallback(() => {
-    if (dernierCode) envoyerPresence(dernierCode);
-  }, [dernierCode, envoyerPresence]);
+  useEffect(() => {
+    if (mode !== 'camera') arreterCamera();
+  }, [mode, arreterCamera]);
+
+  useEffect(
+    () => () => {
+      const scanner = scannerRef.current;
+      scannerRef.current = null;
+      if (scanner) {
+        scanner
+          .stop()
+          .catch(() => {
+            // Lecteur déjà arrêté au moment du démontage.
+          })
+          .finally(() => {
+            try {
+              scanner.clear();
+            } catch {
+              // Conteneur démonté : rien à nettoyer.
+            }
+          });
+      }
+    },
+    [],
+  );
+
+  const soumettreManuel = (event) => {
+    event.preventDefault();
+    soumettreCode(codeManuel);
+  };
+
+  const recommencer = () => {
+    setResultat(null);
+    setCodeManuel('');
+    setErreurCode('');
+    if (mode === 'camera' && !cameraActive && !erreurCamera) {
+      demarrerCamera();
+    }
+  };
 
   return (
-    <AppLayout currentPage="scan">
-      <div className="mx-auto w-full max-w-md space-y-5 px-4 py-6 sm:max-w-lg sm:px-6" aria-labelledby="scan-titre">
-        <div className="space-y-1 text-center">
-          <h1 id="scan-titre" className="text-2xl font-bold tracking-tight text-slate-900">Scanner une présence</h1>
-          <p className="max-w-prose65 text-base text-slate-600 mx-auto">
-            Pointez la caméra vers le QR code de la séance pour enregistrer votre présence.
-          </p>
-        </div>
-
-        <Card className="space-y-4 p-4 sm:p-5">
-          {!cameraEnCours ? (
-            <div
-              aria-hidden="true"
-              className="flex h-56 flex-col items-center justify-center gap-3 rounded-app border-2 border-dashed border-slate-300 bg-slate-50 text-slate-500"
+    <Page>
+      <PageHeader
+        titre="Scanner une présence"
+        description="Scannez le QR code affiché par l’enseignant pendant la séance. La saisie manuelle du code est toujours disponible."
+        icone={QrCode}
+        action={
+          resultat?.type === 'succes' && resultat.seance ? (
+            <Link
+              to={`/seances/${resultat.seance.id}`}
+              className="inline-flex min-h-[44px] items-center rounded-app border border-slate-300 bg-white px-4 text-base font-semibold text-slate-800 no-underline hover:bg-slate-50"
             >
-              <QrCode className="h-16 w-16" strokeWidth={1.5} />
-              <p className="text-base font-medium">Zone de visée de la caméra</p>
-            </div>
-          ) : (
-            <div className="overflow-hidden rounded-app bg-slate-900">
-              <div id="lecteur-qr" ref={lecteurRef} className="min-h-56" role="region" aria-label="Lecteur de QR code" />
-            </div>
+              Voir la séance
+            </Link>
+          ) : undefined
+        }
+      />
+
+      {resultat && (
+        <div className="space-y-3">
+          <Alert
+            variant={
+              resultat.type === 'succes'
+                ? 'success'
+                : resultat.type === 'information'
+                  ? 'info'
+                  : 'danger'
+            }
+            title={resultat.titre}
+          >
+            <p>{resultat.message}</p>
+          </Alert>
+
+          {resultat.type === 'succes' && resultat.seance && (
+            <Card>
+              <CardBody className="space-y-1 text-sm">
+                <p className="flex items-center gap-2 font-semibold text-slate-900">
+                  <CheckCircle2 aria-hidden="true" className="h-5 w-5 text-success-700" />
+                  {resultat.seance.cours_nom}
+                </p>
+                <p className="text-slate-700">
+                  {formatDateLongue(resultat.seance.date_seance)} ·{' '}
+                  {formatPlage(resultat.seance.heure_debut, resultat.seance.heure_fin)}
+                </p>
+                <p className="text-slate-700">Salle {resultat.seance.salle || 'non renseignée'}</p>
+              </CardBody>
+            </Card>
           )}
 
-          {erreurCamera && (
-            <Alert variant="warning" title="Caméra indisponible">
-              {erreurCamera}
-            </Alert>
+          {resultat.type === 'information' && (
+            <p className="flex items-start gap-2 rounded-app bg-brand-50 px-4 py-3 text-sm text-brand-900">
+              <Info aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+              Votre présence était déjà enregistrée : aucun doublon n’a été créé.
+            </p>
           )}
 
-          <div className="flex flex-col gap-3">
-            {!cameraEnCours ? (
-              <Button type="button" variant="primary" size="lg" className="w-full" onClick={demarrerCamera}>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="primary" onClick={recommencer}>
+              <RotateCcw aria-hidden="true" className="h-5 w-5" />
+              Scanner à nouveau
+            </Button>
+            {resultat.type === 'erreur' && mode === 'manuel' && (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setResultat(null);
+                  setMode('camera');
+                }}
+              >
                 <Camera aria-hidden="true" className="h-5 w-5" />
-                <span>Activer la caméra</span>
-              </Button>
-            ) : (
-              <Button type="button" variant="secondary" size="lg" className="w-full" onClick={arreterCamera}>
-                <CameraOff aria-hidden="true" className="h-5 w-5" />
-                <span>Arrêter la caméra</span>
+                Essayer avec la caméra
               </Button>
             )}
           </div>
+        </div>
+      )}
 
-          {/* Repli : saisie manuelle systématique (caméra refusée, HTTP, etc.) */}
-          <div className="border-t border-slate-100 pt-4">
-            <form
-              onSubmit={(e) => { e.preventDefault(); envoyerPresence(codeManuel); }}
-              className="space-y-3"
-              aria-label="Saisie manuelle du code"
+      <Card>
+        <CardHeader
+          title="Moyen de saisie"
+          description="La caméra est plus rapide ; la saisie manuelle reste le repli garanti."
+        />
+        <CardBody className="space-y-4">
+          <div
+            role="group"
+            aria-label="Choisir le moyen de saisie"
+            className="flex flex-wrap gap-2"
+          >
+            <button
+              type="button"
+              onClick={() => setMode('camera')}
+              aria-pressed={mode === 'camera'}
+              className={`inline-flex min-h-[44px] items-center gap-2 rounded-app border px-4 text-base font-semibold transition-colors ${
+                mode === 'camera'
+                  ? 'border-brand-700 bg-brand-700 text-white'
+                  : 'border-slate-300 bg-white text-slate-800 hover:bg-slate-50'
+              }`}
             >
-              <Input
-                id="code-manuel"
-                label="Code de la séance (si vous ne pouvez pas scanner)"
-                hint="Recopiez le code affiché sous le QR code de l’enseignant."
-                placeholder="Ex. 8f4kLmQp2x…"
-                value={codeManuel}
-                onChange={(e) => setCodeManuel(e.target.value)}
-                leadingIcon={Keyboard}
-                disabled={envoi}
-              />
-              <Button type="submit" variant="secondary" size="lg" className="w-full" loading={envoi}>
-                <CheckCircle2 aria-hidden="true" className="h-5 w-5" />
-                <span>Valider le code</span>
-              </Button>
-            </form>
+              <Camera aria-hidden="true" className="h-5 w-5" />
+              Caméra
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('manuel')}
+              aria-pressed={mode === 'manuel'}
+              className={`inline-flex min-h-[44px] items-center gap-2 rounded-app border px-4 text-base font-semibold transition-colors ${
+                mode === 'manuel'
+                  ? 'border-brand-700 bg-brand-700 text-white'
+                  : 'border-slate-300 bg-white text-slate-800 hover:bg-slate-50'
+              }`}
+            >
+              <Keyboard aria-hidden="true" className="h-5 w-5" />
+              Saisie manuelle
+            </button>
           </div>
 
-          {succes && (
-            <Alert variant="success" title="Présence enregistrée">
-              {succes}
-            </Alert>
-          )}
-          {erreur && (
-            <Alert variant="danger" title="Présence non enregistrée">
-              <p>{erreur}</p>
-              {dernierCode && (
-                <div className="mt-3">
-                  <Button type="button" variant="secondary" size="md" onClick={reessayer} disabled={envoi}>
-                    <RotateCcw aria-hidden="true" className="h-5 w-5" />
-                    <span>Réessayer avec ce code</span>
-                  </Button>
-                </div>
+          {mode === 'camera' && (
+            <div className="space-y-3">
+              {!window.isSecureContext && (
+                <Alert variant="warning" title="Caméra indisponible sur ce navigateur">
+                  L’accès à la caméra exige une connexion sécurisée (HTTPS) ou
+                  l’adresse localhost. Utilisez la saisie manuelle du code.
+                </Alert>
               )}
-            </Alert>
-          )}
-        </Card>
 
-        <p className="flex items-center justify-center gap-2 text-center text-sm text-slate-500">
-          {envoi ? (
-            <>
-              <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-              <span>Envoi de la présence en cours…</span>
-            </>
-          ) : (
-            <span>Le retour est immédiat : vert si la présence est enregistrée, rouge avec la cause sinon.</span>
+              {erreurCamera && (
+                <Alert
+                  variant="warning"
+                  title="Caméra indisponible"
+                  className="items-start"
+                >
+                  <p>{erreurCamera}</p>
+                  <div className="mt-3">
+                    <Button variant="secondary" size="sm" onClick={() => setMode('manuel')}>
+                      <Keyboard aria-hidden="true" className="h-4 w-4" />
+                      Saisir le code manuellement
+                    </Button>
+                  </div>
+                </Alert>
+              )}
+
+              <div className="relative overflow-hidden rounded-app border border-slate-300 bg-slate-900">
+                <div
+                  id={ID_LECTEUR}
+                  className="mx-auto aspect-square w-full max-w-md [&_video]:object-cover"
+                />
+                {!cameraActive && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-900 px-6 text-center text-white">
+                    {demarrageCamera ? (
+                      <>
+                        <Camera aria-hidden="true" className="h-10 w-10 animate-pulse" />
+                        <p className="font-medium">Démarrage de la caméra…</p>
+                      </>
+                    ) : (
+                      <>
+                        <CameraOff aria-hidden="true" className="h-10 w-10 text-slate-300" />
+                        <p className="max-w-xs text-sm text-slate-200">
+                          Autorisez l’accès à la caméra pour scanner le QR code affiché
+                          en salle.
+                        </p>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {!cameraActive ? (
+                  <Button
+                    variant="primary"
+                    onClick={demarrerCamera}
+                    loading={demarrageCamera}
+                    disabled={!window.isSecureContext}
+                  >
+                    <Camera aria-hidden="true" className="h-5 w-5" />
+                    Activer la caméra
+                  </Button>
+                ) : (
+                  <Button variant="secondary" onClick={arreterCamera}>
+                    <CameraOff aria-hidden="true" className="h-5 w-5" />
+                    Arrêter la caméra
+                  </Button>
+                )}
+              </div>
+
+              <p className="flex items-start gap-2 text-sm text-slate-600">
+                <ShieldAlert aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+                Les images de la caméra ne sont traitées que dans votre navigateur et
+                ne sont jamais enregistrées.
+              </p>
+            </div>
           )}
-        </p>
-      </div>
-    </AppLayout>
+
+          {mode === 'manuel' && (
+            <form onSubmit={soumettreManuel} className="space-y-3" noValidate>
+              <Input
+                id="code-seance"
+                label="Code de la séance"
+                value={codeManuel}
+                onChange={(event) => setCodeManuel(event.target.value)}
+                error={erreurCode}
+                hint="Collez le code complet (PQR:…) ou le jeton affiché sous le QR code."
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck={false}
+                disabled={envoi}
+                leadingIcon={QrCode}
+              />
+              <Button type="submit" variant="primary" loading={envoi}>
+                <CheckCircle2 aria-hidden="true" className="h-5 w-5" />
+                Valider le code
+              </Button>
+            </form>
+          )}
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader title="Bon à savoir" />
+        <CardBody>
+          <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
+            <li>Le QR code change régulièrement : scannez celui affiché à l’écran.</li>
+            <li>Le scan n’est accepté que pendant la séance, pas avant ni après.</li>
+            <li>Un second scan renvoie une information, sans créer de doublon.</li>
+            <li>
+              En cas de difficulté, demandez à votre enseignant de corriger votre
+              présence depuis la feuille de présence.
+            </li>
+          </ul>
+        </CardBody>
+      </Card>
+    </Page>
   );
 }
 
-export default ScanPage;
+export default Scan;

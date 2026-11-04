@@ -1,16 +1,51 @@
-# React + Vite
+# Frontend - Présence QR
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Interface React de l'application de contrôle de présence par QR code.
 
-Currently, two official plugins are available:
+## Démarrage
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```powershell
+npm install
+Copy-Item .env.example .env
+npm run dev
+```
 
-## React Compiler
+L'application est servie sur `http://localhost:5173`. Le backend Django doit
+tourner sur l'URL définie par `VITE_API_URL` (par défaut
+`http://127.0.0.1:8000`).
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Scripts
 
-## Expanding the ESLint configuration
+| Commande | Rôle |
+|---|---|
+| `npm run dev` | Serveur de développement Vite |
+| `npm run lint` | Analyse ESLint |
+| `npm test` | Tests Vitest (exécution unique) |
+| `npm run test:watch` | Tests en mode surveillance |
+| `npm run build` | Build de production dans `dist/` |
+| `npm run preview` | Prévisualisation du build |
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Organisation
+
+- `src/services/api.js` : unique client HTTP, jetons et renouvellement.
+- `src/context/` : authentification et notifications.
+- `src/components/ui/` : kit de composants accessible.
+- `src/components/forms/` : formulaires cours et séance partagés.
+- `src/components/routing/` : garde de route et redirections.
+- `src/pages/` : écrans métier.
+- `src/utils/` : constantes, formats `fr-FR`, validation.
+- `src/hooks/` : chargement de données et titre de page.
+
+## Documentation
+
+La documentation complète (installation, API, UX, hypothèses, checklist
+d'accessibilité, démonstration) se trouve à la racine du dépôt :
+
+```text
+README.md
+docs/API.md
+docs/UX.md
+docs/HYPOTHESES.md
+docs/IHM-CHECKLIST.md
+docs/DEMO.md
+```

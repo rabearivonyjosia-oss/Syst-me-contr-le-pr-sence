@@ -1,66 +1,101 @@
-import { Route, Routes, useNavigate } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
+import { Route, Routes } from 'react-router-dom';
+import { Spinner } from './components/ui/index.js';
 import Login from './login.jsx';
 import Register from './register.jsx';
-import Dashboard from './Dashboard.jsx';
-import { AccesRefuse, PageNonTrouvee } from './pages/Placeholder.jsx';
-import { ProtectedRoute, RedirectionApresConnexion } from './components/routing/ProtectedRoute.jsx';
+import AppLayout from './components/layout/AppLayout.jsx';
+import {
+  ProtectedRoute,
+  RedirectionApresConnexion,
+} from './components/routing/ProtectedRoute.jsx';
+import Dashboard from './pages/Dashboard.jsx';
+import Cours from './pages/Cours.jsx';
+import CoursDetail from './pages/CoursDetail.jsx';
+import Seances from './pages/Seances.jsx';
+import SeanceDetail from './pages/SeanceDetail.jsx';
+import PresencesSeance from './pages/PresencesSeance.jsx';
+import Statistiques from './pages/Statistiques.jsx';
+import Profil from './pages/Profil.jsx';
+import Aide from './pages/Aide.jsx';
+import AccesRefuse from './pages/AccesRefuse.jsx';
+import NonTrouvee from './pages/NonTrouvee.jsx';
 
-/*
- * Routes (Phase 2, frontend uniquement — backend inchangé).
- * - /connexion et /inscription : formulaires (fetch direct inchangé, appels
- *   relatifs /login/ et /register/ côté service api.js).
- * - Espace connecté : un seul gabarit (AppLayout) avec navigation identique.
- * - /accès-refusé et page 404 explicites.
- * - Les écrans de Phase 3/4 (profil, scan, QR enseignant, statistiques) sont
- *   déclarés en Placeholder pour garder une navigation qui ne casse pas.
- */
+// La lecture de QR code et le rendu du QR embarquent des bibliothèques
+// volumineuses : on les charge à la demande pour alléger le bundle initial.
+const QrSeance = lazy(() => import('./pages/QrSeance.jsx'));
+const Scan = lazy(() => import('./pages/Scan.jsx'));
 
-function PageConnexion() {
-  const navigate = useNavigate();
+function ChargementPage() {
   return (
-    <Login
-      goToRegister={() => navigate('/inscription')}
-      goToDashboard={() => navigate('/accueil')}
-    />
+    <div className="flex min-h-[50vh] items-center justify-center">
+      <Spinner label="Chargement de la page…" />
+    </div>
   );
-}
-
-function PageInscription() {
-  const navigate = useNavigate();
-  return <Register goToLogin={() => navigate('/connexion')} />;
 }
 
 function App() {
   return (
-    <div className="App">
-      <Routes>
-        <Route path="/connexion" element={<PageConnexion />} />
-        <Route path="/inscription" element={<PageInscription />} />
-        <Route path="/accès-refusé" element={<AccesRefuse />} />
+    <Routes>
+      <Route path="/connexion" element={<Login />} />
+      <Route path="/inscription" element={<Register />} />
 
-        {/*
-          Dashboard historique : sens actuel (accueil enseignant).
-          ProtectedRoute exige un token ; sinon retour à /connexion.
-        */}
+      <Route
+        path="/acces-refuse"
+        element={
+          <ProtectedRoute>
+            <AccesRefuse />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        element={
+          <ProtectedRoute>
+            <AppLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route path="/accueil" element={<Dashboard />} />
+        <Route path="/cours" element={<Cours />} />
+        <Route path="/cours/:id" element={<CoursDetail />} />
+        <Route path="/seances" element={<Seances />} />
+        <Route path="/seances/:id" element={<SeanceDetail />} />
         <Route
-          path="/accueil"
+          path="/seances/:id/qr"
           element={
-            <ProtectedRoute roles={['ENSEIGNANT']}>
-              <Dashboard />
+            <ProtectedRoute roles={['ENSEIGNANT', 'ADMIN']}>
+              <Suspense fallback={<ChargementPage />}>
+                <QrSeance />
+              </Suspense>
             </ProtectedRoute>
           }
         />
-        <Route path="/cours" element={<ProtectedRoute roles={['ENSEIGNANT']}><Dashboard page="cours" /></ProtectedRoute>} />
-        <Route path="/seances" element={<ProtectedRoute roles={['ENSEIGNANT']}><Dashboard page="seances" /></ProtectedRoute>} />
-      
-        <Route path="/profil" element={<ProtectedRoute><Dashboard page="profil" /></ProtectedRoute>} />
-        <Route path="/scan" element={<ProtectedRoute roles={['ETUDIANT']}><Dashboard page="scan" /></ProtectedRoute>} />
-        <Route path="/statistiques" element={<ProtectedRoute roles={['ENSEIGNANT']}><Dashboard page="statistiques" /></ProtectedRoute>} />
+        <Route
+          path="/seances/:id/presences"
+          element={
+            <ProtectedRoute roles={['ENSEIGNANT', 'ADMIN']}>
+              <PresencesSeance />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/scan"
+          element={
+            <ProtectedRoute roles={['ETUDIANT']}>
+              <Suspense fallback={<ChargementPage />}>
+                <Scan />
+              </Suspense>
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/statistiques" element={<Statistiques />} />
+        <Route path="/profil" element={<Profil />} />
+        <Route path="/aide" element={<Aide />} />
+      </Route>
 
-        <Route path="/" element={<RedirectionApresConnexion />} />
-        <Route path="*" element={<PageNonTrouvee />} />
-      </Routes>
-    </div>
+      <Route path="/" element={<RedirectionApresConnexion />} />
+      <Route path="*" element={<NonTrouvee />} />
+    </Routes>
   );
 }
 

@@ -113,7 +113,7 @@ Retour d'état explicite : icône + titre + message ; `role="status"` (info/succ
 
 ## 5. Gabarits
 
-- **`AppLayout`** (espace connecté) : même navigation partout — barre latérale bureau (Accueil, Cours, Séances, Étudiants, Profil) + barre inférieure téléphone (icônes + libellés, cibles ≥ 44 px, `aria-current="page"` + fond bleu sur l'entrée active), en-tête avec cloche (notifications nommées) et avatar. Lien « Aller au contenu » (skip link). Bouton de déconnexion en bas de la barre latérale (icône + texte rouge).
+- **`AppLayout`** (espace connecté) : même navigation partout — barre latérale bureau (Accueil, Cours, Séances, Statistiques, Aide, Profil) + barre inférieure téléphone (5 destinations maximum, icônes + libellés, cibles ≥ 44 px, `aria-current="page"`), en-tête avec aide, déconnexion mobile et avatar. Lien « Aller au contenu » (skip link). Bannière hors-ligne et bouton de déconnexion en bas de la barre latérale (icône + texte rouge).
 - **`AuthLayout`** (connexion / inscription) : split-screen — panneau de marque bleu foncé (texte blanc, contraste élevé) + formulaire sur blanc ; mobile = formulaire seul avec en-tête de marque compact.
 
 ## 6. États prévus
@@ -130,12 +130,13 @@ Texte sombre sur fond clair partout (le thème sombre a été supprimé) ; corps
 |---|---|
 | Connexion / Inscription | ✅ Refondus (thème clair, composants ui, erreurs inline) |
 | Tableau de bord | ✅ Refondu (stats uniformes, séances à venir, gabarit commun) |
-| Mes cours | ✅ Refondu (layout commun, recherche fonctionnelle, états) |
-| Séances / Étudiants / Profil | ✅ Placeholders explicites (état vide guidé) dans le gabarit commun |
-| **QR code enseignant** (grand QR centré, marge blanche, minuteur + barre de progression, bouton « Régénérer ») | ❌ **Non implémenté dans le frontend** — à créer avec les mêmes composants (`Card`, `Button`, `Alert`) ; le temps restant doit être affiché en texte + barre, jamais en couleur seule |
-| **Scan étudiant (téléphone)** | ❌ Non implémenté — modèle à suivre : 1 seul CTA ≥ 44 px, retour immédiat « Présence enregistrée ✓ » (vert + icône + texte) ou cause d'échec précise (QR expiré / déjà scanné / hors séance) |
-| **Statistiques + exports CSV/PDF/Excel** | ❌ Non implémenté — graphiques avec étiquettes directes ou motifs (pas la couleur seule), légendes + unités, boutons d'export avec libellé texte |
-| **Tableaux présences + filtres/recherche** | ❌ Non implémenté — utiliser `Table` + `Badge` (Présent/Absent/Retard = vert/rouge/orange + icône + texte) |
+| Cours / Détail de cours | ✅ Tableau, recherche, tri, formulaire partagé, inscriptions |
+| Séances / Détail de séance | ✅ Filtres, formulaire partagé, feuille de présence |
+| **QR code enseignant** | ✅ Grand QR centré, marge blanche, minuteur + barre de progression, renouvellement manuel et automatique, code texte de secours |
+| **Scan étudiant (téléphone)** | ✅ Caméra + saisie manuelle, un seul CTA ≥ 44 px, retour immédiat « Présence enregistrée » ou cause précise (QR expiré / déjà scanné / hors séance / non inscrit) |
+| **Statistiques + export CSV** | ✅ KPI, barres accessibles avec tableau alternatif, filtres, export CSV UTF-8 (pas de PDF) |
+| **Tableaux présences + filtres/recherche** | ✅ `DataTable` (tri, recherche, pagination, cartes mobiles) + badges Présent / Absent / Justifié avec icône + texte |
+| Profil / Aide / 403 / 404 | ✅ Profil réel, page d'aide, pages d'erreur dédiées |
 
 ## 9. Accessibilité — points de contrôle
 

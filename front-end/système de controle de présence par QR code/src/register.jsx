@@ -1,235 +1,267 @@
-import { useEffect, useRef, useState } from 'react';
-import { User, Mail, Lock, Hash, Eye, EyeOff } from 'lucide-react';
+import { useState } from 'react';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
+import {
+  ArrowLeft,
+  Eye,
+  EyeOff,
+  Hash,
+  Lock,
+  Mail,
+  Phone,
+  UserRound,
+} from 'lucide-react';
 import AuthLayout from './components/layout/AuthLayout.jsx';
 import { Alert, Button, Input, Select } from './components/ui/index.js';
+import { useAuth } from './context/AuthContext.jsx';
+import { usePageTitle } from './hooks/usePageTitle.js';
+import { NIVEAUX } from './utils/constants.js';
+import { validerInscription } from './utils/validation.js';
+import {
+  authApi,
+  champsDepuisErreur,
+  messageDepuisErreur,
+} from './services/api.js';
 
-function Register({ goToLogin }) {
-    const [username, setUsername] = useState("");
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
-    const [password2, setPassword2] = useState("");
-    const [showPassword, setShowPassword] = useState(false);
-    const [showPassword2, setShowPassword2] = useState(false);
-    const [role, setRole] = useState("ETUDIANT");
-    const [niveau, setNiveau] = useState("");
-    const [num_matricule, setNum_matricule] = useState("");
-    const [isLoading, setIsLoading] = useState(false);
-    const [formError, setFormError] = useState("");
-    const [formSuccess, setFormSuccess] = useState("");
-    const redirectTimer = useRef(null);
+const VALEURS_INITIALES = {
+  first_name: '',
+  last_name: '',
+  email: '',
+  niveau: '',
+  num_matricule: '',
+  telephone: '',
+  password: '',
+  password_confirm: '',
+};
 
-    useEffect(() => () => {
-        if (redirectTimer.current) window.clearTimeout(redirectTimer.current);
-    }, []);
+function Register() {
+  const { estConnecte } = useAuth();
+  const navigate = useNavigate();
 
-    const inscription = async (e) => {
-        e.preventDefault();
-        setFormError("");
-        setFormSuccess("");
+  const [valeurs, setValeurs] = useState(VALEURS_INITIALES);
+  const [erreurs, setErreurs] = useState({});
+  const [erreur, setErreur] = useState('');
+  const [envoi, setEnvoi] = useState(false);
+  const [afficherMotDePasse, setAfficherMotDePasse] = useState(false);
 
-        if (password !== password2) {
-            setFormError("Les deux mots de passe ne sont pas identiques.");
-            return;
-        }
-        if (role === "ETUDIANT" && niveau === "") {
-            setFormError("Veuillez choisir votre niveau.");
-            return;
-        }
+  usePageTitle('Créer un compte');
 
-        setIsLoading(true);
+  if (estConnecte) {
+    return <Navigate to="/accueil" replace />;
+  }
 
-        try {
-            const response = await fetch(`${import.meta.env?.VITE_API_URL || "http://127.0.0.1:8000"}/register/`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    username: username,
-                    email: email,
-                    password: password,
-                    role: role,
-                    niveau: niveau,
-                    num_matricule: num_matricule,
-                }),
-            });
+  const modifier = (champ) => (event) => {
+    setValeurs((actuelles) => ({ ...actuelles, [champ]: event.target.value }));
+  };
 
-            const data = await response.json();
-            if (response.ok) {
-                setFormSuccess("Compte créé avec succès. Redirection vers la page de connexion…");
-                redirectTimer.current = window.setTimeout(goToLogin, 1500);
-            } else {
-                console.log(data);
-                setFormError(
-                    data?.detail ||
-                    (typeof data === "object" ? Object.values(data).flat().join(" ") : "") ||
-                    "Erreur lors de la création du compte. Vérifiez les informations saisies."
-                );
-            }
-        } catch (error) {
-            console.log(error);
-            setFormError("Impossible de contacter le serveur. Vérifiez votre connexion puis réessayez.");
-        } finally {
-            setIsLoading(false);
-        }
-    };
+  const soumettre = async (event) => {
+    event.preventDefault();
+    setErreur('');
+    const email = valeurs.email.trim().toLowerCase();
+    const validation = validerInscription({
+      ...valeurs,
+      username: email,
+      email,
+    });
+    setErreurs(validation);
+    if (Object.keys(validation).length > 0) return;
 
-    const passwordToggle = (shown, setShown, label) => (
-        <button
-            type="button"
-            onClick={() => setShown(!shown)}
-            aria-label={shown ? `Masquer ${label}` : `Afficher ${label}`}
-            aria-pressed={shown}
-            title={shown ? `Masquer ${label}` : `Afficher ${label}`}
-            className="flex h-11 w-11 items-center justify-center rounded-app text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
-        >
-            {shown ? (
-                <EyeOff aria-hidden="true" className="h-5 w-5" />
-            ) : (
-                <Eye aria-hidden="true" className="h-5 w-5" />
-            )}
-        </button>
-    );
+    setEnvoi(true);
+    try {
+      await authApi.register({
+        username: email,
+        email,
+        first_name: valeurs.first_name.trim(),
+        last_name: valeurs.last_name.trim(),
+        niveau: valeurs.niveau,
+        num_matricule: valeurs.num_matricule.trim(),
+        telephone: valeurs.telephone.trim(),
+        password: valeurs.password,
+        password_confirm: valeurs.password_confirm,
+      });
+      navigate('/connexion', {
+        replace: true,
+        state: {
+          email,
+          message:
+            'Votre compte étudiant est créé. Connectez-vous avec votre email et votre mot de passe.',
+        },
+      });
+    } catch (probleme) {
+      setErreurs(champsDepuisErreur(probleme));
+      setErreur(
+        messageDepuisErreur(
+          probleme,
+          'Inscription impossible. Vérifiez les informations puis réessayez.',
+        ),
+      );
+    } finally {
+      setEnvoi(false);
+    }
+  };
 
-    return (
-        <AuthLayout panelTitle="Rejoignez Présence QR">
-            <div className="space-y-5">
-                <div className="space-y-1.5">
-                    <h2 className="text-2xl font-bold tracking-tight text-slate-900">
-                        Créer un compte
-                    </h2>
-                    <p className="text-base text-slate-600">
-                        Inscrivez-vous pour accéder à votre espace.
-                    </p>
-                </div>
+  return (
+    <AuthLayout panelTitle="Rejoignez vos cours en quelques secondes">
+      <div className="space-y-6">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+            Créer un compte étudiant
+          </h1>
+          <p className="max-w-prose65 text-base text-slate-600">
+            L’inscription autonome est réservée aux étudiants. Les comptes enseignants
+            sont créés par l’administration.
+          </p>
+        </div>
 
-                <form onSubmit={inscription} className="space-y-4">
-                    <Input
-                        id="username"
-                        label="Nom d'utilisateur"
-                        type="text"
-                        name="username"
-                        autoComplete="username"
-                        required
-                        placeholder="ex : amadou.ndiaye"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        leadingIcon={User}
-                    />
+        {erreur && (
+          <Alert variant="danger" title="Inscription refusée">
+            {erreur}
+          </Alert>
+        )}
 
-                    <Input
-                        id="email"
-                        label="Adresse email"
-                        type="email"
-                        name="email"
-                        autoComplete="email"
-                        required
-                        placeholder="exemple@universite.sn"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        leadingIcon={Mail}
-                    />
+        <form onSubmit={soumettre} className="space-y-4" noValidate>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Input
+              id="inscription-prenom"
+              label="Prénom"
+              autoComplete="given-name"
+              required
+              value={valeurs.first_name}
+              onChange={modifier('first_name')}
+              leadingIcon={UserRound}
+              error={erreurs.first_name}
+              disabled={envoi}
+            />
+            <Input
+              id="inscription-nom"
+              label="Nom"
+              autoComplete="family-name"
+              required
+              value={valeurs.last_name}
+              onChange={modifier('last_name')}
+              error={erreurs.last_name}
+              disabled={envoi}
+            />
+          </div>
 
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <Select
-                            id="role"
-                            label="Rôle"
-                            name="role"
-                            value={role}
-                            onChange={(e) => setRole(e.target.value)}
-                        >
-                            <option value="ETUDIANT">Étudiant</option>
-                            <option value="ENSEIGNANT">Enseignant</option>
-                            <option value="ADMIN">Administrateur</option>
-                        </Select>
+          <Input
+            id="inscription-email"
+            label="Adresse email"
+            type="email"
+            autoComplete="email"
+            required
+            hint="Elle servira d’identifiant de connexion."
+            value={valeurs.email}
+            onChange={modifier('email')}
+            leadingIcon={Mail}
+            error={erreurs.email}
+            disabled={envoi}
+          />
 
-                        {role === "ETUDIANT" && (
-                            <Select
-                                id="niveau"
-                                label="Niveau"
-                                name="niveau"
-                                required
-                                value={niveau}
-                                onChange={(e) => setNiveau(e.target.value)}
-                            >
-                                <option value="">Choisir…</option>
-                                <option value="L1">Licence 1</option>
-                                <option value="L2">Licence 2</option>
-                                <option value="L3">Licence 3</option>
-                                <option value="M1">Master 1</option>
-                                <option value="M2">Master 2</option>
-                            </Select>
-                        )}
-                    </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Select
+              id="inscription-niveau"
+              label="Niveau"
+              required
+              value={valeurs.niveau}
+              onChange={modifier('niveau')}
+              error={erreurs.niveau}
+              disabled={envoi}
+            >
+              <option value="">Choisir un niveau</option>
+              {NIVEAUX.map((niveau) => (
+                <option key={niveau.value} value={niveau.value}>
+                  {niveau.label}
+                </option>
+              ))}
+            </Select>
+            <Input
+              id="inscription-matricule"
+              label="Numéro de matricule"
+              required
+              value={valeurs.num_matricule}
+              onChange={modifier('num_matricule')}
+              leadingIcon={Hash}
+              error={erreurs.num_matricule}
+              disabled={envoi}
+            />
+          </div>
 
-                    <Input
-                        id="num_matricule"
-                        label={role === "ETUDIANT" ? "Numéro matricule" : "Numéro matricule (facultatif)"}
-                        type="text"
-                        name="num_matricule"
-                        placeholder="ex : 2025L1INF123"
-                        value={num_matricule}
-                        onChange={(e) => setNum_matricule(e.target.value)}
-                        leadingIcon={Hash}
-                    />
+          <Input
+            id="inscription-telephone"
+            label="Téléphone (optionnel)"
+            type="tel"
+            autoComplete="tel"
+            value={valeurs.telephone}
+            onChange={modifier('telephone')}
+            leadingIcon={Phone}
+            error={erreurs.telephone}
+            disabled={envoi}
+          />
 
-                    <Input
-                        id="password"
-                        label="Mot de passe"
-                        type={showPassword ? "text" : "password"}
-                        name="new-password"
-                        autoComplete="new-password"
-                        required
-                        placeholder="Votre mot de passe"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        leadingIcon={Lock}
-                        trailing={passwordToggle(showPassword, setShowPassword, 'le mot de passe')}
-                    />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Input
+              id="inscription-mot-de-passe"
+              label="Mot de passe"
+              type={afficherMotDePasse ? 'text' : 'password'}
+              autoComplete="new-password"
+              required
+              hint="Au moins 8 caractères, pas uniquement des chiffres."
+              value={valeurs.password}
+              onChange={modifier('password')}
+              leadingIcon={Lock}
+              error={erreurs.password}
+              disabled={envoi}
+              trailing={
+                <button
+                  type="button"
+                  onClick={() => setAfficherMotDePasse((valeur) => !valeur)}
+                  aria-label={
+                    afficherMotDePasse
+                      ? 'Masquer les mots de passe'
+                      : 'Afficher les mots de passe'
+                  }
+                  aria-pressed={afficherMotDePasse}
+                  className="flex h-10 w-10 items-center justify-center rounded-app text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                >
+                  {afficherMotDePasse ? (
+                    <EyeOff aria-hidden="true" className="h-5 w-5" />
+                  ) : (
+                    <Eye aria-hidden="true" className="h-5 w-5" />
+                  )}
+                </button>
+              }
+            />
+            <Input
+              id="inscription-confirmation"
+              label="Confirmer le mot de passe"
+              type={afficherMotDePasse ? 'text' : 'password'}
+              autoComplete="new-password"
+              required
+              value={valeurs.password_confirm}
+              onChange={modifier('password_confirm')}
+              leadingIcon={Lock}
+              error={erreurs.password_confirm}
+              disabled={envoi}
+            />
+          </div>
 
-                    <Input
-                        id="password2"
-                        label="Confirmer le mot de passe"
-                        type={showPassword2 ? "text" : "password"}
-                        name="confirm-password"
-                        autoComplete="new-password"
-                        required
-                        placeholder="Confirmez votre mot de passe"
-                        value={password2}
-                        onChange={(e) => setPassword2(e.target.value)}
-                        leadingIcon={Lock}
-                        trailing={passwordToggle(showPassword2, setShowPassword2, 'la confirmation')}
-                    />
+          <Button type="submit" variant="primary" size="lg" className="w-full" loading={envoi}>
+            Créer mon compte
+          </Button>
+        </form>
 
-                    {formError && (
-                        <Alert variant="danger" title="Inscription impossible">
-                            {formError}
-                        </Alert>
-                    )}
-                    {formSuccess && (
-                        <Alert variant="success" title="Compte créé">
-                            {formSuccess}
-                        </Alert>
-                    )}
-
-                    <Button type="submit" size="lg" className="w-full" loading={isLoading}>
-                        {isLoading ? "Inscription en cours…" : "S'inscrire"}
-                    </Button>
-                </form>
-
-                <p className="text-center text-base text-slate-600">
-                    Déjà un compte ?{" "}
-                    <button
-                        type="button"
-                        onClick={goToLogin}
-                        className="font-semibold text-brand-700 underline underline-offset-2 transition-colors hover:text-brand-800"
-                    >
-                        Retour à la connexion
-                    </button>
-                </p>
-            </div>
-        </AuthLayout>
-    );
+        <p className="border-t border-slate-200 pt-4 text-center text-base text-slate-600">
+          <Link
+            to="/connexion"
+            className="inline-flex items-center gap-1.5 font-semibold text-brand-700"
+          >
+            <ArrowLeft aria-hidden="true" className="h-4 w-4" />
+            J’ai déjà un compte
+          </Link>
+        </p>
+      </div>
+    </AuthLayout>
+  );
 }
 
 export default Register;

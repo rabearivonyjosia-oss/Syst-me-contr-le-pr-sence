@@ -17,5 +17,14 @@ export default defineConfig([
       globals: globals.browser,
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
+    rules: {
+      // Les contextes exposent volontairement leur hook de consommation à
+      // côté du provider : ce sont deux exports stables, pas des composants
+      // additionnels, et le rechargement à chaud reste fonctionnel.
+      'react-refresh/only-export-components': [
+        'error',
+        { allowExportNames: ['useAuth', 'useToast'] },
+      ],
+    },
   },
 ])

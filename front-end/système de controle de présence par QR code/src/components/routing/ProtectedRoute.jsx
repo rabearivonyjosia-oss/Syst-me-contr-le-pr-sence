@@ -1,66 +1,69 @@
-import { Navigate, useNavigate } from 'react-router-dom';
-import { ShieldAlert } from 'lucide-react';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
-import { Alert, Button, Card } from '../ui/index.js';
+import { ErrorState, Spinner } from '../ui/index.js';
 
-/*
- * Route protégée (Phase 2).
- * - Sans token : redirection vers /connexion (une seule entrée d'authentification).
- * - Avec roles : vérifie le rôle effectif ; sinon écran « Accès refusé » explicite
- *   (icône + texte, jamais la couleur seule) avec retour à l'accueil du rôle.
+/**
+ * Garde de route.
+ * - Session en cours de vérification : indicateur explicite (pas de saut visuel).
+ * - Session non vérifiable (réseau) : message + réessayer, sans perdre les jetons.
+ * - Non connecté : redirection vers /connexion en mémorisant la page demandée.
+ * - Rôle non autorisé : redirection vers la page 403 dédiée.
  */
 export function ProtectedRoute({ roles, children }) {
-  const { estConnecte, role } = useAuth();
-  const navigate = useNavigate();
+  const { statut, role, erreurSession, rechargerProfil } = useAuth();
+  const location = useLocation();
 
-  if (!estConnecte) {
-    return <Navigate to="/connexion" replace />;
-  }
-
-  if (roles && roles.length > 0 && !roles.includes(role)) {
-    const accueil = role === 'ETUDIANT' ? '/scan' : '/accueil';
+  if (statut === 'chargement') {
     return (
-      <div className="mx-auto flex min-h-screen w-full max-w-xl items-center px-4 py-10 sm:px-6">
-        <Card className="w-full p-6 text-center sm:p-8" aria-labelledby="acces-refuse-titre">
-          <span
-            aria-hidden="true"
-            className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-app bg-danger-50 text-danger-700"
-          >
-            <ShieldAlert className="h-8 w-8" strokeWidth={1.75} />
-          </span>
-          <h1 id="acces-refuse-titre" className="text-2xl font-bold tracking-tight text-slate-900">
-            Accès refusé
-          </h1>
-          <p className="mx-auto mt-2 max-w-prose65 text-base text-slate-600">
-            Cette page est réservée à {roles.includes('ETUDIANT') ? 'aux étudiants' : 'aux enseignants'}.
-            Votre rôle actuel ne permet pas d’y accéder.
-          </p>
-          <div className="mt-6">
-            <Button
-              variant="primary"
-              size="md"
-              onClick={() => {
-                navigate(accueil, { replace: true });
-              }}
-            >
-              Retour à mon accueil
-            </Button>
-          </div>
-          <Alert variant="info" title="Information" className="mt-6 text-left">
-            Si ce n’est pas le bon rôle, déconnectez-vous puis reconnectez-vous.
-          </Alert>
-        </Card>
+      <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
+        <Spinner label="Vérification de votre session…" />
       </div>
     );
   }
 
-  return children;
+  if (statut === 'erreur') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-10">
+        <ErrorState
+          titre="Session indisponible"
+          message={erreurSession}
+          onRetry={rechargerProfil}
+          className="w-full max-w-xl"
+        />
+      </div>
+    );
+  }
+
+  if (statut !== 'connecte') {
+    return (
+      <Navigate
+        to="/connexion"
+        replace
+        state={{ from: `${location.pathname}${location.search}` }}
+      />
+    );
+  }
+
+  if (roles && roles.length > 0 && !roles.includes(role)) {
+    return <Navigate to="/acces-refuse" replace />;
+  }
+
+  return children ?? <Outlet />;
 }
 
-// Redirection après connexion selon le rôle : étudiant → scan, enseignant → accueil.
+/** Redirection d'entrée : l'accueil s'adapte au rôle de l'utilisateur. */
 export function RedirectionApresConnexion() {
-  const { role } = useAuth();
-  return <Navigate to={role === 'ETUDIANT' ? '/scan' : '/accueil'} replace />;
+  const { statut } = useAuth();
+
+  if (statut === 'chargement') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
+        <Spinner label="Vérification de votre session…" />
+      </div>
+    );
+  }
+
+  return <Navigate to="/accueil" replace />;
 }
 
 export default ProtectedRoute;
