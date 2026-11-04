@@ -1,3 +1,4 @@
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Bell,
   BookOpen,
@@ -5,9 +6,11 @@ import {
   GraduationCap,
   Home,
   LogOut,
+  QrCode,
   UserRound,
   Users,
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext.jsx';
 
 /**
  * Gabarit principal de l'application (enseignant).
@@ -25,7 +28,52 @@ const NAV_ITEMS = [
   { key: 'profil', label: 'Profil', Icon: UserRound },
 ];
 
-function AppLayout({ currentPage, onNavigate, onLogout, children }) {
+// Navigation par rôle : l'étudiant scanne et consulte ses présences / son profil ;
+// l'enseignant garde l'espace actuel. Les clés restent celles de Dashboard.
+const ROUTES_PAR_CLE = {
+  dashboard: '/accueil',
+  cours: '/cours',
+  seances: '/seances',
+  etudiants: '/etudiants',
+  profil: '/profil',
+  scan: '/scan',
+  statistiques: '/statistiques',
+};
+
+function AppLayout({ currentPage: currentPageProp, onNavigate, onLogout, children }) {
+  const { utilisateur, role, deconnexion } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Dérive la page courante de l'URL pour que la navigation reste identique et
+  // /profil, /scan etc. correspondent automatiquement. Fallback sur la prop
+  // historique de Dashboard quand l'URL ne correspond pas encore.
+  const currentPage =
+    currentPageProp ||
+    Object.entries(ROUTES_PAR_CLE).find(([, chemin]) => chemin === location.pathname)?.[0] ||
+    'dashboard';
+
+  const handleNavigate = (key) => {
+    const chemin = ROUTES_PAR_CLE[key];
+    if (chemin) navigate(chemin);
+    else if (onNavigate) onNavigate(key);
+  };
+
+  const handleLogout = onLogout || (() => {
+    deconnexion();
+    navigate('/connexion');
+  });
+
+  // Étiquette d'initiales : uniquement depuis le profil serveur quand il existe ;
+  // sinon jamais « Étudiant » inventé côté client. Le nom canonique côté client
+  // reste « Présence QR » (marque, thème clair, tokens du design system).
+  const nomAffiche = utilisateur?.username || utilisateur?.email || 'Compte';
+  const initiales = String(nomAffiche)
+    .trim()
+    .slice(0, 2)
+    .toUpperCase();
+  const roleAffiche = role === 'ETUDIANT' ? 'Étudiant' : role === 'ENSEIGNANT' ? 'Enseignant' : 'Utilisateur';
+
   const navButtonClass = (key) =>
     `flex w-full items-center gap-3 rounded-app px-3 py-2.5 text-base font-medium transition-colors focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-brand-700 ${
       currentPage === key
@@ -51,7 +99,9 @@ function AppLayout({ currentPage, onNavigate, onLogout, children }) {
             </span>
             <div className="leading-tight">
               <p className="text-base font-bold text-slate-900">Présence QR</p>
-              <p className="text-xs text-slate-500">Espace enseignant</p>
+              <p className="text-xs text-slate-500">
+                {role === 'ETUDIANT' ? 'Espace étudiant' : 'Espace enseignant'}
+              </p>
             </div>
           </div>
 
@@ -60,7 +110,7 @@ function AppLayout({ currentPage, onNavigate, onLogout, children }) {
               <button
                 key={key}
                 type="button"
-                onClick={() => onNavigate(key)}
+                onClick={() => handleNavigate(key)}
                 aria-current={currentPage === key ? 'page' : undefined}
                 className={navButtonClass(key)}
               >
@@ -68,12 +118,23 @@ function AppLayout({ currentPage, onNavigate, onLogout, children }) {
                 <span>{label}</span>
               </button>
             ))}
+            {role === 'ETUDIANT' && (
+              <button
+                type="button"
+                onClick={() => handleNavigate('scan')}
+                aria-current={currentPage === 'scan' ? 'page' : undefined}
+                className={navButtonClass('scan')}
+              >
+                <QrCode aria-hidden="true" className="h-5 w-5" strokeWidth={2} />
+                <span>Scanner</span>
+              </button>
+            )}
           </nav>
         </div>
 
         <button
           type="button"
-          onClick={onLogout}
+          onClick={handleLogout}
           className="flex w-full items-center gap-3 rounded-app px-3 py-2.5 text-base font-medium text-danger-700 transition-colors hover:bg-danger-50 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-danger-700"
         >
           <LogOut aria-hidden="true" className="h-5 w-5" strokeWidth={2} />
@@ -89,7 +150,7 @@ function AppLayout({ currentPage, onNavigate, onLogout, children }) {
             <span className="font-bold text-slate-900">Présence QR</span>
           </div>
           <p className="hidden text-sm font-semibold text-slate-500 md:block">
-            Espace enseignant
+            {role === 'ETUDIANT' ? 'Espace étudiant' : 'Espace enseignant'}
           </p>
 
           <div className="ml-auto flex items-center gap-3">
@@ -110,11 +171,11 @@ function AppLayout({ currentPage, onNavigate, onLogout, children }) {
                 aria-hidden="true"
                 className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-100 text-sm font-bold text-brand-800"
               >
-                MR
+                {initiales}
               </span>
               <span className="hidden text-left leading-tight sm:block">
-                <span className="block text-sm font-semibold text-slate-900">Mr / Mdm</span>
-                <span className="block text-xs text-slate-500">Enseignant</span>
+                <span className="block max-w-40 truncate text-sm font-semibold text-slate-900">{nomAffiche}</span>
+                <span className="block text-xs text-slate-500">{roleAffiche}</span>
               </span>
             </div>
           </div>
@@ -137,7 +198,7 @@ function AppLayout({ currentPage, onNavigate, onLogout, children }) {
               <li key={key} className="flex-1">
                 <button
                   type="button"
-                  onClick={() => onNavigate(key)}
+                  onClick={() => handleNavigate(key)}
                   aria-current={active ? 'page' : undefined}
                   className={`flex min-h-[44px] w-full flex-col items-center justify-center gap-0.5 rounded-app px-1 py-1 transition-colors ${
                     active ? 'text-brand-700' : 'text-slate-500 hover:text-slate-800'

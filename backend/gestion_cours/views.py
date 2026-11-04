@@ -1,5 +1,6 @@
 from django.shortcuts import render
 from rest_framework import generics
+from rest_framework.permissions import IsAuthenticated
 from django.http import HttpResponse
 from .models import cours
 from .serializers import coursSerializer
@@ -18,4 +19,7 @@ class coursViews(generics.ListCreateAPIView):
         )
 
 
-
+class coursDetailViews(generics.RetrieveUpdateDestroyAPIView):
+    queryset = cours.objects.all()
+    serializer_class = coursSerializer
+    permission_classes = [IsAuthenticated]

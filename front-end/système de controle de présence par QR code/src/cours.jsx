@@ -18,12 +18,20 @@ import {
   Input,
   Spinner,
 } from "./components/ui/index.js";
+import { useAuth } from "./context/AuthContext.jsx";
 
 /**
  * Page « Mes cours » — contenu intégré au gabarit AppLayout
  * (barre latérale / navigation mobile fournies par le parent).
  */
 function Cours() {
+  // L'API actuelle n'expose pas le rôle dans le JWT : fetchProfile() reste prêt
+  // pour /api/profile/. On ne restreint rien ici pour préserver l'espace actuel.
+  const { utilisateur, role, fetchProfile } = useAuth();
+  useEffect(() => {
+    fetchProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -37,7 +45,7 @@ function Cours() {
       try {
         const token = localStorage.getItem("access_token");
 
-        const response = await fetch("http://127.0.0.1:8000/cours/", {
+        const response = await fetch(`${import.meta.env?.VITE_API_URL || "http://127.0.0.1:8000"}/cours/`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",

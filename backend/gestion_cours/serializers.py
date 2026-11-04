@@ -2,9 +2,6 @@ from rest_framework import serializers
 from .models import cours
 from gestion_utilisateur.models import CustomUser
 
-
-#regiter pour les cours crée
-
 class coursSerializer(serializers.ModelSerializer):
     nom_enseignant = serializers.PrimaryKeyRelatedField(
         queryset=CustomUser.objects.filter(role="ENSEIGNANT")
@@ -48,6 +45,9 @@ class coursSerializer(serializers.ModelSerializer):
             nom_enseignant=request.user,
             niveau=validated_data["niveau"],
         )
+
+
+
 
 
         

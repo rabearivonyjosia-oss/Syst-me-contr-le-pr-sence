@@ -2,8 +2,10 @@ import { useState } from "react";
 import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 import AuthLayout from "./components/layout/AuthLayout.jsx";
 import { Alert, Button, Input } from "./components/ui/index.js";
+import { useAuth } from "./context/AuthContext.jsx";
 
 function Login({ goToRegister, goToDashboard }) {
+  const { connexion: enregistrerSession } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -17,7 +19,7 @@ function Login({ goToRegister, goToDashboard }) {
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/login/", {
+      const response = await fetch(`${import.meta.env?.VITE_API_URL || "http://127.0.0.1:8000"}/login/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -31,7 +33,7 @@ function Login({ goToRegister, goToDashboard }) {
       const data = await response.json();
 
       if (response.ok) {
-        localStorage.setItem("access_token", data.access);
+        enregistrerSession(data);
         goToDashboard();
       } else {
         setErrorMsg(data.detail || "Adresse email ou mot de passe incorrect.");

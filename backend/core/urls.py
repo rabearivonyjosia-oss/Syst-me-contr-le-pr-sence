@@ -16,11 +16,12 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
+from rest_framework.routers import DefaultRouter
 from gestion_utilisateur .views import RegisterViews
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from gestion_cours.views import coursViews
 from gestion_seance.views import Seanceviews
-
+from gestion_presence.views import PresenceViews
 
 
 urlpatterns = [
@@ -35,4 +36,6 @@ urlpatterns = [
     path('cours/', coursViews.as_view(), name='cours'),
 #pour la seance
     path('seance/', Seanceviews.as_view(), name='seance'),
+# pour le presence
+    path ('Presence/', PresenceViews.as_view(), name="Presence")
 ]

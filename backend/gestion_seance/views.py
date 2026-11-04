@@ -17,3 +17,5 @@ class Seanceviews(generics.ListCreateAPIView):
 
         # Générer le token et définir son expiration
         seance.creer_qr_temporaire()
+
+    

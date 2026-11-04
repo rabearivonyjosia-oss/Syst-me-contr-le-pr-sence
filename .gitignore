@@ -1,0 +1,40 @@
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+venv/
+.venv/
+
+# Django
+db.sqlite3
+
+# React / Node
+node_modules/
+dist/
+
+# Environnement
+.env
+
+
+# Python / Django
+__pycache__/
+*.py[cod]
+*.pyo
+venv/
+.venv/
+db.sqlite3
+
+# React / Node
+node_modules/
+dist/
+dist-ssr/
+
+# Environnement
+.env
+*.local
+
+# Éditeurs
+.vscode/
+.idea/
+.DS_Store
